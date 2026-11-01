@@ -64,7 +64,7 @@ export default function EditorWorkspacePage() {
       setError(
         err instanceof Error
           ? err.message
-          : 'Sign in with an Editor or Admin account to access the Editor Workspace.'
+          : 'Sign in with a Senior Retoucher or Admin account to access the Production Queue.'
       );
     }
   }, [selectedJob]);
@@ -115,28 +115,33 @@ export default function EditorWorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-icx-slate text-icx-sand">
+    <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-950">
       <AppNavbar />
 
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="border-b border-zinc-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-icx-sand">
-              Retoucher &amp; Editor Production Queue
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
+              <Sliders className="h-3 w-3" />
+              <span>Color &amp; Retouching Suite</span>
+            </span>
+            <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
+              Senior Retoucher Production Queue
             </h1>
-            <p className="mt-1 text-xs sm:text-sm text-icx-sand-muted">
-              Download customer originals, upload finished edits (server automatically burns
-              1,200px watermarked proofs), and resolve photo revisions.
+            <p className="mt-1 text-xs sm:text-sm text-zinc-600">
+              Download uncompressed client originals, upload finished masters, and resolve frame-level revision notes.
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-xl border border-icx-success/40 bg-icx-slate-dark px-3.5 py-2 text-xs text-icx-success">
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800">
             <ShieldCheck className="h-4 w-4" />
-            <span>Zero Customer PII / Financial Data Exposed</span>
+            <span>Client PII &amp; Financial Isolation Active</span>
           </div>
         </div>
+      </div>
 
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
         {error && (
-          <div className="flex items-center gap-2 rounded-xl border border-icx-error/40 bg-icx-error/10 p-4 text-xs text-icx-error">
+          <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -145,8 +150,8 @@ export default function EditorWorkspacePage() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Left Column: Active Editing Jobs */}
           <div className="space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-icx-sand">
-              Assigned &amp; Unclaimed Queue ({jobs.length})
+            <h2 className="text-xs font-black uppercase tracking-widest text-zinc-500">
+              Active &amp; Unclaimed Queue ({jobs.length})
             </h2>
             {jobs.map((job) => {
               const active = selectedJob?.id === job.id;
@@ -154,42 +159,52 @@ export default function EditorWorkspacePage() {
                 <div
                   key={job.id}
                   onClick={() => void loadJobDetail(job.id)}
-                  className={`cursor-pointer rounded-2xl border p-4 transition-all ${
+                  className={`cursor-pointer rounded-3xl border-2 p-5 transition-all ${
                     active
-                      ? 'border-icx-sand bg-icx-slate-elevated shadow-lg'
-                      : 'border-icx-slate-border bg-icx-slate-dark hover:border-icx-sand/40'
+                      ? 'border-zinc-950 bg-zinc-950 text-white shadow-xl'
+                      : 'border-zinc-200 bg-white text-zinc-950 hover:border-zinc-400'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-icx-sand">
+                    <span className="text-xs font-black">
                       Job #{job.id.slice(0, 8)} — {job.package_name}
                     </span>
-                    <span className="rounded bg-icx-sand px-2 py-0.5 text-[10px] font-extrabold uppercase text-icx-slate">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+                        active ? 'bg-white text-zinc-950' : 'bg-zinc-950 text-white'
+                      }`}
+                    >
                       {job.status.replace(/_/g, ' ')}
                     </span>
                   </div>
-                  <p className="mt-2 text-xs text-icx-sand-muted">
-                    Photos: {job.edited_count} / {job.uploaded_count} edited • Open Revisions:{' '}
-                    <strong className="text-icx-warning">{job.open_revisions_count}</strong>
+                  <p
+                    className={`mt-2 text-xs font-medium ${
+                      active ? 'text-zinc-300' : 'text-zinc-600'
+                    }`}
+                  >
+                    Frames: {job.edited_count} / {job.uploaded_count} mastered • Open Revisions:{' '}
+                    <strong className={active ? 'text-amber-300' : 'text-amber-700'}>
+                      {job.open_revisions_count}
+                    </strong>
                   </p>
                 </div>
               );
             })}
           </div>
 
-          {/* Right 2 Columns: Selected Job Originals, Revisions & Edit Uploader */}
+          {/* Right 2 Columns: Selected Job Originals, Revisions & Master Uploader */}
           {selectedJob && (
-            <div className="lg:col-span-2 rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6 space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-icx-slate-border pb-4">
+            <div className="lg:col-span-2 rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-200 pb-5">
                 <div>
                   <div className="flex items-center gap-2">
-                    <Sliders className="h-4 w-4 text-icx-sand" />
-                    <h2 className="text-lg font-bold text-icx-sand">
+                    <Sliders className="h-4 w-4 text-zinc-950" />
+                    <h2 className="text-xl font-black text-zinc-950">
                       Job #{selectedJob.id.slice(0, 8)} • {selectedJob.package_name}
                     </h2>
                   </div>
-                  <p className="mt-1 text-xs text-icx-sand-muted">
-                    Brief: {selectedJob.customer_notes || 'Standard package retouching specs'}
+                  <p className="mt-1 text-xs text-zinc-600">
+                    Client Brief: {selectedJob.customer_notes || 'Standard studio retouching specifications'}
                   </p>
                 </div>
 
@@ -197,9 +212,9 @@ export default function EditorWorkspacePage() {
                   <button
                     type="button"
                     onClick={() => void handleClaimJob(selectedJob.id)}
-                    className="rounded-xl bg-icx-sand px-4 py-2 text-xs font-extrabold text-icx-slate"
+                    className="rounded-full bg-zinc-950 px-5 py-2.5 text-xs font-black text-white shadow"
                   >
-                    Claim Job &amp; Start Editing
+                    Claim Job &amp; Start Retouching
                   </button>
                 )}
               </div>
@@ -208,17 +223,17 @@ export default function EditorWorkspacePage() {
                 {photos.map((photo, index) => (
                   <div
                     key={photo.id}
-                    className="rounded-xl border border-icx-slate-border bg-icx-slate p-4 space-y-3"
+                    className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 space-y-3"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <span className="text-xs font-bold text-icx-sand">
-                          Photo #{index + 1} (Version {photo.version})
+                        <span className="text-xs font-black text-zinc-950">
+                          Frame #{index + 1} (Version {photo.version})
                         </span>
                         {photo.has_edit && (
-                          <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-semibold text-icx-success">
+                          <span className="ml-2 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
                             <CheckCircle2 className="h-3.5 w-3.5" />
-                            <span>Edit Uploaded &amp; Watermarked</span>
+                            <span>Master Uploaded &amp; Watermarked</span>
                           </span>
                         )}
                       </div>
@@ -227,10 +242,10 @@ export default function EditorWorkspacePage() {
                         <button
                           type="button"
                           onClick={() => void handleDownloadOriginal(photo.id)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-icx-sand/40 px-3 py-1.5 text-xs font-semibold text-icx-sand hover:bg-icx-slate-elevated"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-bold text-zinc-900 hover:border-zinc-950"
                         >
                           <Download className="h-3.5 w-3.5" />
-                          <span>Download Original</span>
+                          <span>Download Source</span>
                         </button>
                         <button
                           type="button"
@@ -239,23 +254,22 @@ export default function EditorWorkspacePage() {
                               activePhotoUploadId === photo.id ? null : photo.id
                             )
                           }
-                          className="rounded-lg bg-icx-sand px-3 py-1.5 text-xs font-extrabold text-icx-slate"
+                          className="rounded-full bg-zinc-950 px-4 py-2 text-xs font-black text-white"
                         >
-                          {photo.has_edit ? 'Upload New Revision' : 'Upload Finished Edit'}
+                          {photo.has_edit ? 'Upload New Revision' : 'Upload Finished Master'}
                         </button>
                       </div>
                     </div>
 
-                    {/* Open Revision Notes for This Photo */}
                     {photo.revisions.length > 0 && (
-                      <div className="space-y-1.5 rounded-lg border border-icx-warning/40 bg-icx-warning/10 p-3 text-xs">
-                        <span className="font-bold uppercase text-[10px] text-icx-warning">
-                          Customer Revision Notes:
+                      <div className="space-y-1.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs">
+                        <span className="font-black uppercase text-[10px] text-amber-800">
+                          Client Revision Notes:
                         </span>
                         {photo.revisions.map((r) => (
-                          <p key={r.id} className="text-icx-sand">
+                          <p key={r.id} className="text-zinc-900 font-medium">
                             • {r.notes}{' '}
-                            <span className="text-[10px] text-icx-sand-muted">
+                            <span className="text-[10px] text-zinc-500">
                               ({r.resolved_at ? 'Resolved' : 'Pending'})
                             </span>
                           </p>
@@ -263,7 +277,6 @@ export default function EditorWorkspacePage() {
                       </div>
                     )}
 
-                    {/* TUS Uploader for Finished Edit */}
                     {activePhotoUploadId === photo.id && (
                       <div className="pt-2">
                         <TusFileUploader
@@ -286,8 +299,8 @@ export default function EditorWorkspacePage() {
           )}
         </div>
       </main>
+
       <AppFooter />
     </div>
   );
 }
-

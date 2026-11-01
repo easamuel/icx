@@ -9,6 +9,7 @@ import {
   Calendar,
   UploadCloud,
   AlertCircle,
+  Camera,
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import { AppNavbar } from '@/components/layout/AppNavbar';
@@ -84,7 +85,7 @@ export default function PhotographerPortalPage() {
       setError(
         err instanceof Error
           ? err.message
-          : 'Sign in with a Photographer account to access this portal.'
+          : 'Sign in with a Photographer account to access this studio portal.'
       );
     }
   }, []);
@@ -121,7 +122,7 @@ export default function PhotographerPortalPage() {
       setSlotEnd('');
       await loadWorkspace();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add availability slot.');
+      setError(err instanceof Error ? err.message : 'Failed to publish availability slot.');
     }
   }
 
@@ -163,7 +164,7 @@ export default function PhotographerPortalPage() {
         }),
       });
       setServiceTitle('');
-      setProfileSavedMsg('Photographer profile & service pricing updated.');
+      setProfileSavedMsg('Studio profile & service pricing updated.');
       await loadWorkspace();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update profile.');
@@ -171,30 +172,34 @@ export default function PhotographerPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-icx-slate text-icx-sand">
+    <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-950">
       <AppNavbar />
 
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="border-b border-zinc-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-icx-sand">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
+              <Camera className="h-3 w-3" />
+              <span>Partner Studio Workspace</span>
+            </span>
+            <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
               Photographer Studio Portal
             </h1>
-            <p className="mt-1 text-xs sm:text-sm text-icx-sand-muted">
-              Manage your availability slots, accept/decline 48h held booking requests,
-              upload shoot deliverables with automatic server watermarking, and track net
-              earnings.
+            <p className="mt-1 text-xs sm:text-sm text-zinc-600">
+              Manage your live availability slots, confirm 48-hour held session requests, upload shoot deliverables, and track net earnings.
             </p>
           </div>
           {data && (
-            <span className="rounded-xl border border-icx-sand/40 bg-icx-slate-dark px-4 py-2 text-xs font-bold uppercase text-icx-sand">
-              Profile Status: {data.profile.approval_status}
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-black uppercase tracking-wider text-emerald-800">
+              Roster Status: {data.profile.approval_status}
             </span>
           )}
         </div>
+      </div>
 
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
         {error && (
-          <div className="flex items-center gap-2 rounded-xl border border-icx-error/40 bg-icx-error/10 p-4 text-xs text-icx-error">
+          <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -202,131 +207,137 @@ export default function PhotographerPortalPage() {
 
         {data && (
           <>
-            {/* PP-06: Earnings & Commission Ledger */}
+            {/* Earnings & Commission Ledger */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-5">
-                <div className="flex items-center justify-between text-xs text-icx-sand-muted">
-                  <span>Gross Completed Shoots ({data.earningsSummary.completedCount})</span>
-                  <DollarSign className="h-4 w-4 text-icx-sand" />
+              <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between text-xs font-bold text-zinc-500">
+                  <span>Gross Completed Sessions ({data.earningsSummary.completedCount})</span>
+                  <DollarSign className="h-4 w-4 text-zinc-950" />
                 </div>
-                <div className="mt-2 text-2xl font-extrabold text-icx-sand">
+                <div className="mt-2 text-3xl font-black text-zinc-950">
                   {formatNaira(data.earningsSummary.grossEarningsKobo)}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-5">
-                <div className="text-xs text-icx-sand-muted">
+              <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+                <div className="text-xs font-bold text-zinc-500">
                   Platform Commission Deducted
                 </div>
-                <div className="mt-2 text-2xl font-extrabold text-icx-warning">
+                <div className="mt-2 text-3xl font-black text-amber-600">
                   -{formatNaira(data.earningsSummary.totalCommissionKobo)}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-5">
-                <div className="text-xs text-icx-sand-muted">
-                  Net Amount Payable to Photographer
+              <div className="rounded-3xl border border-zinc-200 bg-zinc-950 p-6 text-white shadow-lg">
+                <div className="text-xs font-bold text-zinc-400">
+                  Net Amount Payable to Studio
                 </div>
-                <div className="mt-2 text-2xl font-extrabold text-icx-success">
+                <div className="mt-2 text-3xl font-black text-emerald-400">
                   {formatNaira(data.earningsSummary.netPayableKobo)}
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-              {/* Left 2 Columns: Booking Inbox & Shoot Delivery Uploader (PP-03, PP-04) */}
-              <div className="lg:col-span-2 rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6 space-y-5">
-                <h2 className="text-lg font-bold text-icx-sand">
-                  Booking Requests &amp; Shoot Deliveries ({data.bookings.length})
+              {/* Left 2 Columns: Booking Requests & Shoot Deliveries */}
+              <div className="lg:col-span-2 rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-5">
+                <h2 className="text-lg font-black text-zinc-950">
+                  Session Requests &amp; Shoot Deliveries ({data.bookings.length})
                 </h2>
 
-                {data.bookings.map((b) => (
-                  <div
-                    key={b.id}
-                    className="rounded-xl border border-icx-slate-border bg-icx-slate p-4 space-y-3"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <span className="text-sm font-bold text-icx-sand">
-                          {b.service_title} — Client: {b.customer_name}
-                        </span>
-                        <p className="text-xs text-icx-sand-muted mt-0.5">
-                          Slot: {new Date(b.start_time).toLocaleString()} • Gross:{' '}
-                          {formatNaira(b.price)} (Commission {b.commission_rate}%:{' '}
-                          {formatNaira(b.commission_amount)})
-                        </p>
-                      </div>
-                      <span className="rounded bg-icx-sand px-2.5 py-0.5 text-[11px] font-extrabold uppercase text-icx-slate">
-                        {b.status.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-
-                    {b.status === 'requested' && (
-                      <div className="flex items-center gap-2.5 pt-2">
-                        <button
-                          type="button"
-                          onClick={() => void handleRespondBooking(b.id, 'accept')}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-icx-success px-4 py-2 text-xs font-bold text-white"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          <span>Accept Booking</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleRespondBooking(b.id, 'decline')}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-icx-error/50 px-4 py-2 text-xs font-bold text-icx-error"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                          <span>Decline &amp; Release Slot</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {['confirmed', 'delivered'].includes(b.status) && (
-                      <div className="pt-2 border-t border-icx-slate-border">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveUploadBookingId(
-                              activeUploadBookingId === b.id ? null : b.id
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-icx-sand px-3.5 py-2 text-xs font-bold text-icx-slate"
-                        >
-                          <UploadCloud className="h-3.5 w-3.5" />
-                          <span>
-                            Upload Shoot Deliverables ({b.deliverables_count} uploaded)
+                {data.bookings.length === 0 ? (
+                  <p className="text-xs text-zinc-500">
+                    No active session bookings yet. Publish availability slots on the right to receive client bookings.
+                  </p>
+                ) : (
+                  data.bookings.map((b) => (
+                    <div
+                      key={b.id}
+                      className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 space-y-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <span className="text-sm font-black text-zinc-950">
+                            {b.service_title} — Client: {b.customer_name}
                           </span>
-                        </button>
-
-                        {activeUploadBookingId === b.id && (
-                          <div className="mt-4">
-                            <TusFileUploader
-                              uploadType="booking_delivery"
-                              targetId={b.id}
-                              maxFiles={100}
-                              onUploadComplete={() => void loadWorkspace()}
-                            />
-                          </div>
-                        )}
+                          <p className="text-xs font-medium text-zinc-600 mt-1">
+                            Slot: {new Date(b.start_time).toLocaleString()} • Gross:{' '}
+                            <strong>{formatNaira(b.price)}</strong> (Commission {b.commission_rate}%:{' '}
+                            {formatNaira(b.commission_amount)})
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-zinc-950 px-3 py-1 text-[10px] font-black uppercase text-white">
+                          {b.status.replace(/_/g, ' ')}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {b.status === 'requested' && (
+                        <div className="flex items-center gap-2.5 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleRespondBooking(b.id, 'accept')}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-5 py-2 text-xs font-black text-white"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            <span>Accept Session</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleRespondBooking(b.id, 'decline')}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-5 py-2 text-xs font-bold text-red-700"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            <span>Decline &amp; Release Slot</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {['confirmed', 'delivered'].includes(b.status) && (
+                        <div className="pt-3 border-t border-zinc-200">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveUploadBookingId(
+                                activeUploadBookingId === b.id ? null : b.id
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-4 py-2 text-xs font-black text-white"
+                          >
+                            <UploadCloud className="h-3.5 w-3.5" />
+                            <span>
+                              Upload Shoot Deliverables ({b.deliverables_count} uploaded)
+                            </span>
+                          </button>
+
+                          {activeUploadBookingId === b.id && (
+                            <div className="mt-4">
+                              <TusFileUploader
+                                uploadType="booking_delivery"
+                                targetId={b.id}
+                                maxFiles={100}
+                                onUploadComplete={() => void loadWorkspace()}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
 
-              {/* Right Column: Availability Slot Scheduler (PP-02) */}
-              <div className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6 space-y-5 h-fit">
+              {/* Right Column: Availability Slot Scheduler */}
+              <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-5 h-fit">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-icx-sand" />
-                  <h2 className="text-base font-bold text-icx-sand">
-                    Availability Scheduler
+                  <Calendar className="h-5 w-5 text-zinc-950" />
+                  <h2 className="text-base font-black text-zinc-950">
+                    Publish Availability Slots
                   </h2>
                 </div>
 
                 <form onSubmit={handleAddSlot} className="space-y-3">
                   <div>
-                    <label className="block text-xs font-semibold text-icx-sand">
+                    <label className="block text-xs font-extrabold text-zinc-900">
                       Start Date &amp; Time
                     </label>
                     <input
@@ -334,11 +345,11 @@ export default function PhotographerPortalPage() {
                       required
                       value={slotStart}
                       onChange={(e) => setSlotStart(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3 py-2 text-xs text-icx-sand"
+                      className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-icx-sand">
+                    <label className="block text-xs font-extrabold text-zinc-900">
                       End Date &amp; Time
                     </label>
                     <input
@@ -346,29 +357,29 @@ export default function PhotographerPortalPage() {
                       required
                       value={slotEnd}
                       onChange={(e) => setSlotEnd(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3 py-2 text-xs text-icx-sand"
+                      className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-icx-sand py-2.5 text-xs font-extrabold text-icx-slate"
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-zinc-950 py-3 text-xs font-black text-white shadow"
                   >
                     <Plus className="h-4 w-4" />
-                    <span>Add Free Availability Slot</span>
+                    <span>Publish Open Slot</span>
                   </button>
                 </form>
 
-                <div className="space-y-2 border-t border-icx-slate-border pt-4">
-                  <h3 className="text-xs font-bold uppercase text-icx-sand-muted">
+                <div className="space-y-2 border-t border-zinc-200 pt-4">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
                     Published Slots ({data.slots.length})
                   </h3>
                   {data.slots.map((s) => (
                     <div
                       key={s.id}
-                      className="flex items-center justify-between rounded-lg border border-icx-slate-border bg-icx-slate px-3 py-2 text-xs"
+                      className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs font-semibold"
                     >
                       <span>{new Date(s.start_time).toLocaleString()}</span>
-                      <span className="uppercase font-bold text-[10px] px-2 py-0.5 rounded bg-icx-sand/20 text-icx-sand">
+                      <span className="uppercase font-black text-[10px] px-2.5 py-0.5 rounded-full bg-zinc-950 text-white">
                         {s.status}
                       </span>
                     </div>
@@ -377,17 +388,17 @@ export default function PhotographerPortalPage() {
               </div>
             </div>
 
-            {/* PP-01: Photographer Profile, Bio, Location & Services Manager */}
+            {/* Profile, Bio & Custom Services Manager */}
             <form
               onSubmit={handleSaveProfile}
-              className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6 space-y-4"
+              className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-5"
             >
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-icx-sand">
-                  Profile, Bio &amp; Custom Services Manager
+                <h2 className="text-lg font-black text-zinc-950">
+                  Studio Profile, Bio &amp; Shoot Packages
                 </h2>
                 {profileSavedMsg && (
-                  <span className="text-xs font-bold text-icx-success">
+                  <span className="text-xs font-bold text-emerald-700">
                     {profileSavedMsg}
                   </span>
                 )}
@@ -395,7 +406,7 @@ export default function PhotographerPortalPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-icx-sand">
+                  <label className="block text-xs font-extrabold text-zinc-900">
                     Studio / Base Location
                   </label>
                   <input
@@ -404,11 +415,11 @@ export default function PhotographerPortalPage() {
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder="e.g. Victoria Island, Lagos"
-                    className="mt-1 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3.5 py-2 text-xs text-icx-sand"
+                    className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-xs font-bold text-zinc-950"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-icx-sand">
+                  <label className="block text-xs font-extrabold text-zinc-900">
                     Add New Shoot Package (Optional)
                   </label>
                   <div className="mt-1 grid grid-cols-3 gap-2">
@@ -417,26 +428,26 @@ export default function PhotographerPortalPage() {
                       value={serviceTitle}
                       onChange={(e) => setServiceTitle(e.target.value)}
                       placeholder="Package Title"
-                      className="rounded-xl border border-icx-slate-border bg-icx-slate px-3 py-2 text-xs text-icx-sand"
+                      className="rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-950"
                     />
                     <input
                       type="number"
                       value={servicePriceNgn}
                       onChange={(e) => setServicePriceNgn(e.target.value)}
                       placeholder="Price (NGN)"
-                      className="rounded-xl border border-icx-slate-border bg-icx-slate px-3 py-2 text-xs text-icx-sand"
+                      className="rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-950"
                     />
                     <input
                       type="number"
                       value={serviceDuration}
                       onChange={(e) => setServiceDuration(e.target.value)}
                       placeholder="Hours"
-                      className="rounded-xl border border-icx-slate-border bg-icx-slate px-3 py-2 text-xs text-icx-sand"
+                      className="rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-950"
                     />
                   </div>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-icx-sand">
+                  <label className="block text-xs font-extrabold text-zinc-900">
                     Photographer Bio &amp; Specialties
                   </label>
                   <textarea
@@ -444,23 +455,23 @@ export default function PhotographerPortalPage() {
                     required
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-icx-slate-border bg-icx-slate p-3 text-xs text-icx-sand"
+                    className="mt-1 w-full rounded-2xl border border-zinc-300 bg-zinc-50 p-3.5 text-xs text-zinc-950"
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="rounded-xl bg-icx-sand px-5 py-2.5 text-xs font-extrabold text-icx-slate"
+                className="rounded-full bg-zinc-950 px-6 py-3 text-xs font-black text-white shadow"
               >
-                Save Profile &amp; Services
+                Save Profile &amp; Packages
               </button>
             </form>
           </>
         )}
       </main>
+
       <AppFooter />
     </div>
   );
 }
-
