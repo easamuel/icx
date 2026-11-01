@@ -2,16 +2,32 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PackageCheck, Calendar, CreditCard, AlertCircle, ShieldCheck } from 'lucide-react';
+import {
+  PackageCheck,
+  CreditCard,
+  AlertCircle,
+  ShieldCheck,
+  ArrowRight,
+  CheckCircle2,
+} from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import type { EquipmentItemRecord, RentalRecord } from '@icx/shared-types';
 import { AppNavbar } from '@/components/layout/AppNavbar';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { apiFetch, ApiError } from '@/lib/api';
 
 interface DayAvailability {
   date: string;
   reservedUnits: number;
   availableUnits: number;
+}
+
+const FALLBACK_GEAR_IMG =
+  'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85';
+
+function getGearImage(photos?: string[]): string {
+  const valid = (photos || []).find((p) => p.startsWith('http'));
+  return valid || FALLBACK_GEAR_IMG;
 }
 
 export default function EquipmentRentalPage() {
@@ -40,7 +56,7 @@ export default function EquipmentRentalPage() {
           void handleSelectItem(res.equipment[0]);
         }
       })
-      .catch(() => setError('Unable to load studio equipment catalog.'));
+      .catch(() => setError('Unable to load cinema & studio equipment catalog.'));
   }, []);
 
   async function handleSelectItem(item: EquipmentItemRecord) {
@@ -64,7 +80,6 @@ export default function EquipmentRentalPage() {
     }
   }
 
-  // Calculate minimum free units across the chosen date range (ER-02, ER-03)
   const selectedRangeDays = calendarDays.filter(
     (d) => startDate && endDate && d.date >= startDate && d.date <= endDate
   );
@@ -135,84 +150,129 @@ export default function EquipmentRentalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-icx-slate text-icx-sand">
+    <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-950">
       <AppNavbar />
 
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-icx-sand">
-            Studio Equipment Rental
+      {/* Studio Header */}
+      <div className="border-b border-zinc-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
+            <PackageCheck className="h-3 w-3" />
+            <span>Cinema &amp; Lighting Vault</span>
+          </span>
+          <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
+            Rent Insured Cinema &amp; Studio Equipment
           </h1>
-          <p className="mt-1 text-sm text-icx-sand-muted">
-            Multi-unit cinema cameras, lenses, and Profoto lighting kits. Checkout locks
-            your units inside a PostgreSQL transaction for 30 minutes so overlapping dates
-            can never be double-booked.
+          <p className="mt-2 max-w-2xl text-xs sm:text-sm text-zinc-600 leading-relaxed">
+            Multi-unit RED digital cinema packages, Hasselblad 100MP medium format systems, Sony G-Master lens trinities, and Profoto Pro-11 generators. Every checkout locks your units exclusively for 30 minutes.
           </p>
         </div>
+      </div>
 
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
         {error && (
-          <div className="flex items-center gap-2 rounded-xl border border-icx-error/40 bg-icx-error/10 p-4 text-xs text-icx-error">
+          <div className="flex items-center gap-2.5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* Left Column: Equipment Catalog */}
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+          {/* Left 5 Columns: Equipment Vault Catalog */}
+          <div className="lg:col-span-5 space-y-4">
             {equipment.map((item) => {
               const active = selectedItem?.id === item.id;
+              const imgUrl = getGearImage(item.photos);
+
               return (
                 <div
                   key={item.id}
                   onClick={() => void handleSelectItem(item)}
-                  className={`cursor-pointer rounded-2xl border p-5 transition-all ${
+                  className={`cursor-pointer overflow-hidden rounded-3xl border-2 transition-all ${
                     active
-                      ? 'border-icx-sand bg-icx-slate-elevated shadow-lg'
-                      : 'border-icx-slate-border bg-icx-slate-dark hover:border-icx-sand/40'
+                      ? 'border-zinc-950 bg-zinc-950 text-white shadow-xl'
+                      : 'border-zinc-200 bg-white text-zinc-950 hover:border-zinc-400'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <h2 className="text-sm sm:text-base font-bold text-icx-sand">
-                      {item.name}
-                    </h2>
-                    <span className="rounded-lg bg-icx-sand px-2.5 py-1 text-xs font-extrabold text-icx-slate shrink-0">
-                      {formatNaira(item.daily_price)} / day
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs text-icx-sand-muted leading-relaxed">
-                    {item.description}
-                  </p>
-                  <div className="mt-3 flex items-center justify-between text-[11px] text-icx-sand-muted">
-                    <span>Total Fleet: {item.total_units} unit(s)</span>
-                    <span className="uppercase font-semibold text-icx-success">
-                      Condition: {item.condition}
-                    </span>
+                  <div className="flex items-center gap-4 p-4">
+                    <img
+                      src={imgUrl}
+                      alt={item.name}
+                      className="h-24 w-24 rounded-2xl object-cover shrink-0 bg-zinc-200"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <h2 className="text-sm font-black leading-snug line-clamp-2">
+                          {item.name}
+                        </h2>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-3 py-0.5 text-xs font-black ${
+                            active
+                              ? 'bg-white text-zinc-950'
+                              : 'bg-zinc-950 text-white'
+                          }`}
+                        >
+                          {formatNaira(item.daily_price)} / day
+                        </span>
+                        <span
+                          className={`text-[11px] font-bold ${
+                            active ? 'text-zinc-300' : 'text-zinc-500'
+                          }`}
+                        >
+                          {item.total_units} Units in Vault
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Right 2 Columns: Availability Calendar + Customer Identity Form + 30-Min Hold */}
+          {/* Right 7 Columns: Selected Gear Details + 14-Day Matrix + 30-Min Hold Form */}
           {selectedItem && (
-            <div className="lg:col-span-2 rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6 sm:p-8 space-y-6">
+            <div className="lg:col-span-7 rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-8">
               {!heldRental ? (
-                <form onSubmit={handleCreate30MinHold} className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-bold text-icx-sand">
-                      Reserve: {selectedItem.name}
-                    </h2>
-                    <p className="text-xs text-icx-sand-muted mt-0.5">
-                      Dates with 0 free units are automatically disabled below (ER-02).
-                    </p>
+                <form onSubmit={handleCreate30MinHold} className="space-y-7">
+                  {/* Top Gear Showcase */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 items-center border-b border-zinc-200 pb-6">
+                    <div className="sm:col-span-5 h-44 overflow-hidden rounded-2xl bg-zinc-900">
+                      <img
+                        src={getGearImage(selectedItem.photos)}
+                        alt={selectedItem.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="sm:col-span-7 space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-emerald-50 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700 border border-emerald-200">
+                          Condition: {selectedItem.condition}
+                        </span>
+                        <span className="text-xs font-bold text-zinc-500">
+                          Fleet: {selectedItem.total_units} Units
+                        </span>
+                      </div>
+                      <h2 className="text-xl font-black text-zinc-950 leading-snug">
+                        {selectedItem.name}
+                      </h2>
+                      <p className="text-xs text-zinc-600 leading-relaxed">
+                        {selectedItem.description}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Interactive 14-Day Unit Availability Strip */}
+                  {/* Interactive 14-Day Unit Availability Matrix */}
                   <div>
-                    <span className="block text-xs font-bold uppercase tracking-wider text-icx-sand mb-2.5">
-                      Live Daily Unit Availability Matrix
-                    </span>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                        Step 01 — 14-Day Live Unit Availability Matrix
+                      </span>
+                      <span className="text-xs font-semibold text-zinc-500">
+                        Click dates to select range
+                      </span>
+                    </div>
                     <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-7 gap-2">
                       {calendarDays.slice(0, 14).map((d) => {
                         const disabled = d.availableUnits === 0;
@@ -233,16 +293,20 @@ export default function EquipmentRentalPage() {
                                 setStartDate(d.date);
                               }
                             }}
-                            className={`rounded-xl border p-2 text-center transition-all ${
+                            className={`rounded-2xl border-2 p-2.5 text-center transition-all ${
                               disabled
-                                ? 'border-icx-error/30 bg-icx-error/10 text-icx-error opacity-50 cursor-not-allowed'
+                                ? 'border-red-200 bg-red-50 text-red-400 opacity-50 cursor-not-allowed'
                                 : inRange
-                                  ? 'border-icx-sand bg-icx-sand text-icx-slate font-bold'
-                                  : 'border-icx-slate-border bg-icx-slate text-icx-sand'
+                                  ? 'border-zinc-950 bg-zinc-950 text-white font-black shadow'
+                                  : 'border-zinc-200 bg-zinc-50 text-zinc-900 hover:border-zinc-400'
                             }`}
                           >
-                            <div className="text-[11px]">{d.date.slice(5)}</div>
-                            <div className="text-[10px] mt-0.5 opacity-85">
+                            <div className="text-xs font-extrabold">{d.date.slice(5)}</div>
+                            <div
+                              className={`text-[10px] mt-0.5 font-semibold ${
+                                inRange ? 'text-emerald-300' : 'text-zinc-500'
+                              }`}
+                            >
                               {d.availableUnits} free
                             </div>
                           </button>
@@ -251,22 +315,23 @@ export default function EquipmentRentalPage() {
                     </div>
                   </div>
 
+                  {/* Date & Unit Controls */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-icx-sand">
-                        Start Date
+                      <label className="block text-xs font-extrabold text-zinc-950">
+                        Pickup Date
                       </label>
                       <input
                         type="date"
                         required
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="mt-1.5 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3 py-2 text-xs text-icx-sand"
+                        className="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-icx-sand">
-                        End Date
+                      <label className="block text-xs font-extrabold text-zinc-950">
+                        Return Date
                       </label>
                       <input
                         type="date"
@@ -274,11 +339,11 @@ export default function EquipmentRentalPage() {
                         min={startDate}
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="mt-1.5 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3 py-2 text-xs text-icx-sand"
+                        className="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-icx-sand">
+                      <label className="block text-xs font-extrabold text-zinc-950">
                         Units ({maxFreeUnitsInRange} Available)
                       </label>
                       <input
@@ -295,82 +360,92 @@ export default function EquipmentRentalPage() {
                             )
                           )
                         }
-                        className="mt-1.5 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3 py-2 text-xs font-bold text-icx-sand"
+                        className="mt-1.5 w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-xs font-black text-zinc-950 focus:border-zinc-950 focus:outline-none"
                       />
                     </div>
                   </div>
 
-                  {/* Customer Identity Form (ER-04) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-icx-slate-border pt-5">
-                    <div>
-                      <label className="block text-xs font-semibold text-icx-sand">
-                        Full Legal Name
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3.5 py-2 text-xs text-icx-sand"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-icx-sand">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3.5 py-2 text-xs text-icx-sand"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-icx-sand">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3.5 py-2 text-xs text-icx-sand"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-icx-sand">
-                        NIN / Passport ID Number
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={govIdNumber}
-                        onChange={(e) => setGovIdNumber(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3.5 py-2 text-xs text-icx-sand"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-icx-sand">
-                        Residential / Studio Pickup Verification Address
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3.5 py-2 text-xs text-icx-sand"
-                      />
+                  {/* Customer Production Verification Form */}
+                  <div className="space-y-4 border-t border-zinc-200 pt-6">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                      Step 02 — Production Pickup &amp; Identity Verification
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-900">
+                          Full Legal Name / Producer Name
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="Chidi Okafor"
+                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-900">
+                          Active Phone Number
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="+234 800 000 0000"
+                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-900">
+                          Production Email Address
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="producer@agency.com"
+                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-900">
+                          NIN or International Passport Number
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={govIdNumber}
+                          onChange={(e) => setGovIdNumber(e.target.value)}
+                          placeholder="Government ID for Vault Release"
+                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-zinc-900">
+                          Studio / Set Location Address
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          placeholder="Plot 14, Admiralty Way, Lekki Phase 1, Lagos"
+                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* ER-05: Rental Total = daily price * days * units */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-icx-slate-border bg-icx-slate p-4">
-                    <div className="text-xs text-icx-sand-muted">
-                      Formula: {formatNaira(selectedItem.daily_price)} × {dayCount} day(s) ×{' '}
-                      {units} unit(s)
+                  {/* Total Calculation Bar */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-zinc-950 p-5 text-white">
+                    <div className="text-xs text-zinc-300">
+                      Rate Calculation: {formatNaira(selectedItem.daily_price)} × {dayCount}{' '}
+                      day(s) × {units} unit(s)
                     </div>
-                    <div className="text-lg font-extrabold text-icx-sand">
+                    <div className="text-xl font-black text-white">
                       Total: {formatNaira(totalAmountKobo)}
                     </div>
                   </div>
@@ -378,31 +453,38 @@ export default function EquipmentRentalPage() {
                   <button
                     type="submit"
                     disabled={loading || maxFreeUnitsInRange < units}
-                    className="w-full rounded-xl bg-icx-sand py-3.5 text-sm font-extrabold text-icx-slate shadow-lg hover:bg-icx-sand-light disabled:opacity-40"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 py-4 text-sm font-black text-white shadow-xl hover:bg-zinc-800 disabled:opacity-40 transition-all"
                   >
-                    {loading
-                      ? 'Locking Inventory Units...'
-                      : 'Hold Dates for 30 Minutes & Proceed to Checkout'}
+                    <span>
+                      {loading
+                        ? 'Locking Vault Units...'
+                        : 'Lock Units for 30 Minutes & Proceed to Checkout'}
+                    </span>
+                    <ArrowRight className="h-4 w-4" />
                   </button>
                 </form>
               ) : (
-                <div className="space-y-5 text-center py-6">
-                  <ShieldCheck className="mx-auto h-12 w-12 text-icx-success" />
-                  <h3 className="text-xl font-bold text-icx-sand">
-                    {heldRental.units} Unit(s) Locked for 30 Minutes!
+                <div className="space-y-6 text-center py-10">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                    <CheckCircle2 className="h-8 w-8" />
+                  </div>
+                  <h3 className="text-2xl font-black text-zinc-950">
+                    {heldRental.units} Unit(s) Locked Exclusively for 30 Minutes
                   </h3>
-                  <p className="text-xs text-icx-sand-muted max-w-md mx-auto">
-                    Your database reservation hold (#{heldRental.id.slice(0, 8)}) expires at{' '}
-                    {heldRental.held_until
-                      ? new Date(heldRental.held_until).toLocaleTimeString()
-                      : 'in 30 minutes'}
-                    . Complete Paystack payment now to confirm your booking.
+                  <p className="text-xs sm:text-sm text-zinc-600 max-w-md mx-auto leading-relaxed">
+                    Your equipment reservation hold (#{heldRental.id.slice(0, 8)}) is active until{' '}
+                    <strong>
+                      {heldRental.held_until
+                        ? new Date(heldRental.held_until).toLocaleTimeString()
+                        : '30 minutes from now'}
+                    </strong>
+                    . Complete Paystack payment below to finalize dispatch.
                   </p>
                   <button
                     type="button"
                     onClick={handlePayRentalHold}
                     disabled={loading}
-                    className="inline-flex items-center gap-2 rounded-xl bg-icx-sand px-6 py-3.5 text-sm font-extrabold text-icx-slate shadow-lg"
+                    className="inline-flex items-center gap-2 rounded-full bg-zinc-950 px-8 py-4 text-sm font-black text-white shadow-xl hover:bg-zinc-800"
                   >
                     <CreditCard className="h-4 w-4" />
                     <span>Pay {formatNaira(heldRental.total_amount)} via Paystack</span>
@@ -413,7 +495,8 @@ export default function EquipmentRentalPage() {
           )}
         </div>
       </main>
+
+      <AppFooter />
     </div>
   );
 }
-

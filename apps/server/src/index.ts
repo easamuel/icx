@@ -19,6 +19,7 @@ import { editorRouter } from './routes/editor.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
 
 export const app = express();
+app.set('trust proxy', 1);
 
 // 1. Enterprise Security Headers
 app.use(

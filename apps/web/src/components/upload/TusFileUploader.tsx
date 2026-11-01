@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { UploadCloud, CheckCircle2, AlertTriangle, RefreshCw, Pause, Play } from 'lucide-react';
+import { UploadCloud, CheckCircle2, AlertTriangle, RefreshCw, Pause, Play, FileImage } from 'lucide-react';
 import { getStoredAccessToken } from '@/lib/api';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 const CHUNK_SIZE_BYTES = 2 * 1024 * 1024; // 2MB resumable chunks
-const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB max per file (PE-02)
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB max per file
 
 export interface UploadQueueItem {
   id: string;
@@ -36,11 +36,6 @@ function encodeMetadata(meta: Record<string, string>): string {
     .join(',');
 }
 
-/**
- * Production TUS v1.0.0 Resumable Chunked Uploader (Requirements PE-02, NF-12).
- * Persists upload URLs by file fingerprint in localStorage so dropped connections
- * resume seamlessly from the exact server `Upload-Offset` without restarting the file.
- */
 export function TusFileUploader({
   uploadType,
   targetId,
@@ -69,7 +64,7 @@ export function TusFileUploader({
           bytesUploaded: 0,
           progress: 0,
           status: 'error',
-          errorMessage: 'Exceeds 50 MB per-file limit (PE-02)',
+          errorMessage: 'Exceeds 50 MB per-file studio limit',
         };
       }
 
@@ -109,7 +104,6 @@ export function TusFileUploader({
       let uploadUrl = item.uploadUrl;
       let offset = 0;
 
-      // 1. If a previous upload URL exists for this file fingerprint, query HEAD for Upload-Offset
       if (uploadUrl) {
         const headRes = await fetch(uploadUrl, {
           method: 'HEAD',
@@ -127,7 +121,6 @@ export function TusFileUploader({
         }
       }
 
-      // 2. Create new TUS upload session if not resuming
       if (!uploadUrl) {
         const metadataHeader = encodeMetadata({
           uploadType,
@@ -149,12 +142,12 @@ export function TusFileUploader({
 
         if (!createRes.ok) {
           const errBody = await createRes.json().catch(() => ({}));
-          throw new Error(errBody.message || 'Failed to initialize resumable upload.');
+          throw new Error(errBody.message || 'Failed to initialize resumable transfer.');
         }
 
         const location = createRes.headers.get('Location');
         if (!location) {
-          throw new Error('Server did not return a TUS Location header.');
+          throw new Error('Server did not return an upload Location header.');
         }
 
         uploadUrl = location;
@@ -162,7 +155,6 @@ export function TusFileUploader({
         updateItem(item.id, { uploadUrl });
       }
 
-      // 3. Stream chunks via PATCH from current offset
       let createdPhotoId: string | undefined;
 
       while (offset < item.file.size) {
@@ -188,7 +180,7 @@ export function TusFileUploader({
         if (!patchRes.ok) {
           const errData = await patchRes.json().catch(() => ({}));
           throw new Error(
-            errData.message || 'Connection interrupted. Click Resume to continue from last byte.'
+            errData.message || 'Transfer interrupted. Click Resume to continue from last byte.'
           );
         }
 
@@ -246,13 +238,15 @@ export function TusFileUploader({
 
   return (
     <div className="space-y-4">
-      <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-icx-sand/30 bg-icx-slate p-6 text-center hover:border-icx-sand transition-colors">
-        <UploadCloud className="h-9 w-9 text-icx-sand" />
-        <span className="mt-2.5 text-sm font-bold text-icx-sand">
-          Click or Drag &amp; Drop High-Resolution Files (TUS Resumable Upload)
+      <label className="group flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-zinc-300 bg-zinc-50/70 p-8 text-center hover:border-zinc-950 hover:bg-zinc-100/60 transition-all">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-950 text-white shadow-sm group-hover:scale-105 transition-transform">
+          <UploadCloud className="h-6 w-6" />
+        </div>
+        <span className="mt-3.5 text-sm font-bold text-zinc-950">
+          Drop Uncompressed Studio Files Here or Click to Browse
         </span>
-        <span className="mt-1 text-xs text-icx-sand-muted">
-          Supports JPG, PNG, HEIC &amp; TIFF • Up to 50 MB per file • Up to {maxFiles} files • Auto-resumes after connection drop
+        <span className="mt-1 text-xs text-zinc-500">
+          JPG, PNG, HEIC, 16-bit TIFF &amp; WebP • Up to 50 MB per file • Auto-resumable transfer
         </span>
         <input
           type="file"
@@ -268,17 +262,22 @@ export function TusFileUploader({
           {items.map((item) => (
             <div
               key={item.id}
-              className="rounded-xl border border-icx-slate-border bg-icx-slate-dark p-3.5"
+              className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-icx-sand">
-                    {item.file.name}
-                  </p>
-                  <p className="text-[11px] text-icx-sand-muted">
-                    {(item.bytesUploaded / (1024 * 1024)).toFixed(2)} MB /{' '}
-                    {(item.file.size / (1024 * 1024)).toFixed(2)} MB ({item.progress}%)
-                  </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-900">
+                    <FileImage className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold text-zinc-950">
+                      {item.file.name}
+                    </p>
+                    <p className="text-[11px] text-zinc-500">
+                      {(item.bytesUploaded / (1024 * 1024)).toFixed(2)} MB /{' '}
+                      {(item.file.size / (1024 * 1024)).toFixed(2)} MB ({item.progress}%)
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
@@ -286,7 +285,7 @@ export function TusFileUploader({
                     <button
                       type="button"
                       onClick={() => togglePause(item)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-icx-slate-border px-2.5 py-1 text-xs text-icx-sand hover:bg-icx-slate"
+                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-100"
                     >
                       <Pause className="h-3.5 w-3.5" />
                       <span>Pause</span>
@@ -297,7 +296,7 @@ export function TusFileUploader({
                     <button
                       type="button"
                       onClick={() => togglePause(item)}
-                      className="inline-flex items-center gap-1 rounded-lg bg-icx-sand px-2.5 py-1 text-xs font-bold text-icx-slate"
+                      className="inline-flex items-center gap-1 rounded-lg bg-zinc-950 px-3 py-1.5 text-xs font-bold text-white"
                     >
                       {item.status === 'paused' ? (
                         <>
@@ -307,37 +306,36 @@ export function TusFileUploader({
                       ) : (
                         <>
                           <RefreshCw className="h-3.5 w-3.5" />
-                          <span>Resume from {item.progress}%</span>
+                          <span>Resume ({item.progress}%)</span>
                         </>
                       )}
                     </button>
                   )}
 
                   {item.status === 'completed' && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-icx-success">
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>Watermarked &amp; Stored</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Uploaded &amp; Protected</span>
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Progress Bar */}
-              <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-icx-slate">
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
                 <div
                   className={`h-full transition-all duration-200 ${
                     item.status === 'error'
-                      ? 'bg-icx-error'
+                      ? 'bg-red-600'
                       : item.status === 'completed'
-                        ? 'bg-icx-success'
-                        : 'bg-icx-sand'
+                        ? 'bg-emerald-600'
+                        : 'bg-zinc-950'
                   }`}
                   style={{ width: `${item.progress}%` }}
                 />
               </div>
 
               {item.errorMessage && (
-                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-icx-error">
+                <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-red-600">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   <span>{item.errorMessage}</span>
                 </div>
@@ -349,4 +347,3 @@ export function TusFileUploader({
     </div>
   );
 }
-

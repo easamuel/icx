@@ -3,15 +3,15 @@ import './globals.css';
 import { WhatsAppSupportButton } from '@/components/layout/WhatsAppSupportButton';
 
 export const metadata: Metadata = {
-  title: 'ICX Studios | Pro Photo Retouching, Photographer Booking & Equipment Rental',
+  title: 'ICX Studios — Commercial Retouching, Master Photographers & Cinema Gear Rental',
   description:
-    'Enterprise creative production platform by LearnArk Technology Limited. Order high-end photo editing, book verified photographers, and rent studio equipment.',
+    'The premier creative production house in Lagos & Abuja. Bespoke editorial photo retouching, vetted master photographers, and insured RED/Sony/Profoto cinema equipment rentals.',
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#2A3439',
+  themeColor: '#FFFFFF',
 };
 
 export default function RootLayout({
@@ -20,12 +20,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-screen bg-icx-slate text-icx-sand antialiased selection:bg-icx-sand selection:text-icx-slate">
+    <html lang="en">
+      <body className="min-h-screen bg-white text-zinc-950 antialiased selection:bg-zinc-950 selection:text-white">
         {children}
         <WhatsAppSupportButton />
       </body>
     </html>
   );
 }
-

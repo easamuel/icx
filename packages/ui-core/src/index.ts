@@ -1,28 +1,29 @@
 /**
- * ICX STUDIOS OFFICIAL BRAND DESIGN SYSTEM & UI/UX TOKENS
- * Strictly derived from LearnArk Technology Limited / ICX Studios identity assets.
+ * ICX STUDIOS — ARCHITECTURAL MONOCHROME BLACK & WHITE DESIGN SYSTEM
+ * Pure White (#FFFFFF) & Alabaster (#FAFAFA) studio surfaces paired with
+ * Obsidian Black (#09090B) typography, razor-sharp borders (#E4E4E7), and high-contrast accents.
  */
 
 export const ICX_COLORS = {
-  /** Primary Deep Slate (Dark Neutral / Core Surface) - RGB(42, 52, 57) */
-  deepSlate: '#2A3439',
-  /** Warm Sand / Studio Ecru (Light Neutral / Accent Surface) - RGB(232, 222, 200) */
-  warmSand: '#E8DEC8',
-  /** Card / Workspace Dark */
-  workspaceDark: '#1F262A',
-  /** Card / Workspace Light */
-  workspaceLight: '#F5EFE3',
-  /** Elevated Slate Surface */
-  slateElevated: '#344046',
-  /** Muted Slate Border */
-  slateBorder: '#3E4C53',
-  /** Muted Sand Text */
-  sandMuted: '#B8B09E',
-  /** Status & Feedback Tokens */
+  /** Primary Studio Surface (Pure White) */
+  deepSlate: '#FFFFFF',
+  /** Primary Ink / Solid Action Surface (Obsidian Black) */
+  warmSand: '#09090B',
+  /** Card / Secondary Alabaster Surface */
+  workspaceDark: '#FAFAFA',
+  /** Hover / Accent Ink Surface */
+  workspaceLight: '#27272A',
+  /** Selected / Elevated Card Surface */
+  slateElevated: '#F4F4F5',
+  /** Architectural 1px Hairline Border */
+  slateBorder: '#E4E4E7',
+  /** High-Contrast Secondary Charcoal Text */
+  sandMuted: '#52525B',
+  /** Status & Semantic Feedback Tokens */
   status: {
-    success: '#10B981',
-    warning: '#F59E0B',
-    error: '#EF4444',
+    success: '#059669',
+    warning: '#D97706',
+    error: '#DC2626',
   },
 } as const;
 
@@ -65,7 +66,6 @@ export function formatNaira(amountInKoboOrNaira: string | number | bigint, isKob
     style: 'currency',
     currency: 'NGN',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   }).format(naira);
 }
-

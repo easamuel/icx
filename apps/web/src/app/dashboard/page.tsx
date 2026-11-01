@@ -2,13 +2,23 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Sliders, Camera, PackageCheck, CreditCard, Download, ArrowRight } from 'lucide-react';
+import {
+  Sliders,
+  Camera,
+  PackageCheck,
+  CreditCard,
+  Download,
+  ArrowRight,
+  Shield,
+  Plus,
+} from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import { AppNavbar } from '@/components/layout/AppNavbar';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { apiFetch } from '@/lib/api';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 export default function CustomerUnifiedDashboardPage() {
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
@@ -61,89 +71,132 @@ export default function CustomerUnifiedDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-icx-slate text-icx-sand">
+    <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-950">
       <AppNavbar />
 
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-10">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-icx-sand">
-              Unified Account History
-            </h1>
-            <p className="mt-1 text-xs sm:text-sm text-icx-sand-muted">
-              Track your photo editing orders, photographer bookings, and studio equipment
-              rentals from one place (Requirement AC-08).
-            </p>
+      <div className="border-b border-zinc-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                Client Command Center
+              </span>
+              <h1 className="mt-1 text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
+                Unified Project Studio
+              </h1>
+              <p className="mt-1 text-xs sm:text-sm text-zinc-600">
+                Manage your active photo retouching orders, photographer sessions, and cinema equipment rentals.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              <Link
+                href="/editing"
+                className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-4 py-2.5 text-xs font-black text-white shadow-sm hover:bg-zinc-800"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>New Retouch Order</span>
+              </Link>
+              <Link
+                href="/photographers"
+                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-xs font-bold text-zinc-900 hover:border-zinc-950"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Book Photographer</span>
+              </Link>
+              <Link
+                href="/rentals"
+                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-xs font-bold text-zinc-900 hover:border-zinc-950"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Rent Gear</span>
+              </Link>
+              <Link
+                href="/account/security"
+                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2.5 text-xs font-bold text-zinc-900 hover:border-zinc-950"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                <span>Security &amp; 2FA</span>
+              </Link>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2.5">
-            <Link
-              href="/editing"
-              className="rounded-xl bg-icx-sand px-4 py-2.5 text-xs font-extrabold text-icx-slate"
-            >
-              + New Edit Order
-            </Link>
-            <Link
-              href="/photographers"
-              className="rounded-xl border border-icx-sand/30 px-4 py-2.5 text-xs font-semibold text-icx-sand"
-            >
-              + Book Photographer
-            </Link>
-            <Link
-              href="/rentals"
-              className="rounded-xl border border-icx-sand/30 px-4 py-2.5 text-xs font-semibold text-icx-sand"
-            >
-              + Rent Gear
-            </Link>
-            <Link
-              href="/account/security"
-              className="rounded-xl border border-icx-sand/30 px-4 py-2.5 text-xs font-semibold text-icx-sand"
-            >
-              Security &amp; 2FA
-            </Link>
+
+          {/* KPI Strip */}
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5">
+              <div className="text-xs font-bold text-zinc-500">Photo Retouching Orders</div>
+              <div className="mt-2 text-3xl font-black text-zinc-950">{orders.length}</div>
+            </div>
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5">
+              <div className="text-xs font-bold text-zinc-500">Photographer Shoot Bookings</div>
+              <div className="mt-2 text-3xl font-black text-zinc-950">{bookings.length}</div>
+            </div>
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5">
+              <div className="text-xs font-bold text-zinc-500">Cinema Gear Reservations</div>
+              <div className="mt-2 text-3xl font-black text-zinc-950">{rentals.length}</div>
+            </div>
           </div>
         </div>
+      </div>
 
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
         {loading ? (
-          <p className="text-xs text-icx-sand-muted">Loading account activity...</p>
+          <div className="rounded-3xl border border-zinc-200 bg-white p-12 text-center text-xs font-semibold text-zinc-500">
+            Loading your studio activity...
+          </div>
         ) : (
           <div className="space-y-8">
             {/* 1. Photo Editing Orders */}
-            <section className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6">
-              <div className="flex items-center gap-2.5 mb-4">
-                <Sliders className="h-5 w-5 text-icx-sand" />
-                <h2 className="text-lg font-bold text-icx-sand">
-                  Photo Editing Orders ({orders.length})
-                </h2>
+            <section className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-950 text-white">
+                    <Sliders className="h-4 w-4" />
+                  </div>
+                  <h2 className="text-lg font-black text-zinc-950">
+                    Photo Retouching Orders ({orders.length})
+                  </h2>
+                </div>
+                <Link
+                  href="/editing"
+                  className="text-xs font-extrabold text-zinc-950 underline"
+                >
+                  Start New Order →
+                </Link>
               </div>
               {orders.length === 0 ? (
-                <p className="text-xs text-icx-sand-muted">No photo editing orders yet.</p>
+                <p className="text-xs text-zinc-500">
+                  No photo retouching orders yet. Launch the retouching wizard to upload your first batch.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {orders.map((order) => (
                     <div
                       key={String(order.id)}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-icx-slate-border bg-icx-slate p-4"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5"
                     >
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-icx-sand">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-black text-zinc-950">
                             {String(order.package_name)}
                           </span>
-                          <span className="rounded bg-icx-sand/20 px-2 py-0.5 text-[10px] font-bold uppercase text-icx-sand">
+                          <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
                             {String(order.status).replace(/_/g, ' ')}
                           </span>
+                          <span className="rounded-full border border-zinc-300 bg-white px-2.5 py-0.5 text-[10px] font-bold uppercase text-zinc-700">
+                            {String(order.payment_state).replace(/_/g, ' ')}
+                          </span>
                         </div>
-                        <p className="mt-1 text-xs text-icx-sand-muted">
-                          {String(order.picture_count)} photos • Paid:{' '}
-                          {formatNaira(String(order.amount_paid))} /{' '}
-                          {formatNaira(String(order.total_amount))} ({String(order.payment_state)})
+                        <p className="mt-1.5 text-xs font-medium text-zinc-600">
+                          {String(order.picture_count)} frames • Paid:{' '}
+                          <strong>{formatNaira(String(order.amount_paid))}</strong> of{' '}
+                          {formatNaira(String(order.total_amount))}
                         </p>
                       </div>
                       <Link
                         href={`/editing/${String(order.id)}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-icx-sand px-3.5 py-2 text-xs font-bold text-icx-slate self-start sm:self-center"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-4 py-2.5 text-xs font-black text-white self-start sm:self-center hover:bg-zinc-800"
                       >
-                        <span>Review Proofs / Download</span>
+                        <span>Inspect Proofs &amp; Download</span>
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Link>
                     </div>
@@ -153,50 +206,62 @@ export default function CustomerUnifiedDashboardPage() {
             </section>
 
             {/* 2. Photographer Bookings */}
-            <section className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6">
-              <div className="flex items-center gap-2.5 mb-4">
-                <Camera className="h-5 w-5 text-icx-sand" />
-                <h2 className="text-lg font-bold text-icx-sand">
-                  Photographer Bookings ({bookings.length})
-                </h2>
+            <section className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-950 text-white">
+                    <Camera className="h-4 w-4" />
+                  </div>
+                  <h2 className="text-lg font-black text-zinc-950">
+                    Photographer Bookings ({bookings.length})
+                  </h2>
+                </div>
+                <Link
+                  href="/photographers"
+                  className="text-xs font-extrabold text-zinc-950 underline"
+                >
+                  Browse Roster →
+                </Link>
               </div>
               {bookings.length === 0 ? (
-                <p className="text-xs text-icx-sand-muted">No photographer bookings yet.</p>
+                <p className="text-xs text-zinc-500">
+                  No photographer bookings yet. Explore our verified Lagos &amp; Abuja photographers to lock a slot.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {bookings.map((b) => (
                     <div
                       key={String(b.id)}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-icx-slate-border bg-icx-slate p-4"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5"
                     >
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-icx-sand">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-black text-zinc-950">
                             {String(b.service_title)} — {String(b.photographer_name)}
                           </span>
-                          <span className="rounded bg-icx-sand/20 px-2 py-0.5 text-[10px] font-bold uppercase text-icx-sand">
+                          <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
                             {String(b.status).replace(/_/g, ' ')}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-icx-sand-muted">
-                          Slot: {new Date(String(b.start_time)).toLocaleString()} • Fee:{' '}
-                          {formatNaira(String(b.price))}
+                        <p className="mt-1.5 text-xs font-medium text-zinc-600">
+                          Session Slot: {new Date(String(b.start_time)).toLocaleString()} • Fee:{' '}
+                          <strong>{formatNaira(String(b.price))}</strong>
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Link
                           href={`/bookings/${String(b.id)}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-icx-sand/40 px-3 py-2 text-xs font-semibold text-icx-sand hover:bg-icx-slate-elevated"
+                          className="inline-flex items-center gap-1 rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-bold text-zinc-950 hover:border-zinc-950"
                         >
-                          <span>View Shoot</span>
+                          <span>Open Session</span>
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
                         {b.status === 'awaiting_payment' && (
                           <button
                             type="button"
                             onClick={() => void handlePayBooking(String(b.id))}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-icx-sand px-3.5 py-2 text-xs font-extrabold text-icx-slate"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-4 py-2 text-xs font-black text-white"
                           >
                             <CreditCard className="h-3.5 w-3.5" />
                             <span>Pay {formatNaira(String(b.price))}</span>
@@ -206,10 +271,10 @@ export default function CustomerUnifiedDashboardPage() {
                           <button
                             type="button"
                             onClick={() => void handleDownloadBookingZip(String(b.id))}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-icx-success px-3.5 py-2 text-xs font-extrabold text-white"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white"
                           >
                             <Download className="h-3.5 w-3.5" />
-                            <span>Download Clean Shoot ZIP</span>
+                            <span>Download Clean ZIP</span>
                           </button>
                         )}
                       </div>
@@ -220,35 +285,47 @@ export default function CustomerUnifiedDashboardPage() {
             </section>
 
             {/* 3. Equipment Rentals */}
-            <section className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6">
-              <div className="flex items-center gap-2.5 mb-4">
-                <PackageCheck className="h-5 w-5 text-icx-sand" />
-                <h2 className="text-lg font-bold text-icx-sand">
-                  Equipment Rentals ({rentals.length})
-                </h2>
+            <section className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-950 text-white">
+                    <PackageCheck className="h-4 w-4" />
+                  </div>
+                  <h2 className="text-lg font-black text-zinc-950">
+                    Cinema &amp; Lighting Gear Rentals ({rentals.length})
+                  </h2>
+                </div>
+                <Link
+                  href="/rentals"
+                  className="text-xs font-extrabold text-zinc-950 underline"
+                >
+                  Open Gear Vault →
+                </Link>
               </div>
               {rentals.length === 0 ? (
-                <p className="text-xs text-icx-sand-muted">No equipment rentals yet.</p>
+                <p className="text-xs text-zinc-500">
+                  No equipment rentals yet. Reserve RED, Hasselblad, Sony, or Profoto kits from our vault.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {rentals.map((r) => (
                     <div
                       key={String(r.id)}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-icx-slate-border bg-icx-slate p-4"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-5"
                     >
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-icx-sand">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-black text-zinc-950">
                             {String(r.item_name)} ({String(r.units)} unit[s])
                           </span>
-                          <span className="rounded bg-icx-sand/20 px-2 py-0.5 text-[10px] font-bold uppercase text-icx-sand">
+                          <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
                             {String(r.status)}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-icx-sand-muted">
-                          Dates: {String(r.start_date).slice(0, 10)} to{' '}
+                        <p className="mt-1.5 text-xs font-medium text-zinc-600">
+                          Dates: {String(r.start_date).slice(0, 10)} →{' '}
                           {String(r.end_date).slice(0, 10)} • Total:{' '}
-                          {formatNaira(String(r.total_amount))}
+                          <strong>{formatNaira(String(r.total_amount))}</strong>
                         </p>
                       </div>
                     </div>
@@ -259,7 +336,8 @@ export default function CustomerUnifiedDashboardPage() {
           </div>
         )}
       </main>
+
+      <AppFooter />
     </div>
   );
 }
-

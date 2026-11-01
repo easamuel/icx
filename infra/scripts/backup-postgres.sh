@@ -16,7 +16,11 @@ mkdir -p "${BACKUP_DIR}"
 ARCHIVE_FILE="${BACKUP_DIR}/icx_studios_${TIMESTAMP}.sql.gz"
 
 echo "[ICX-BACKUP] Starting PostgreSQL dump at ${TIMESTAMP}..."
-pg_dump "${DB_URL}" --format=plain --no-owner --no-acl | gzip -9 > "${ARCHIVE_FILE}"
+if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -q '^icx-postgres$'; then
+  docker exec icx-postgres pg_dump -U "${POSTGRES_USER:-icx_admin}" "${POSTGRES_DB:-icx_studios}" --format=plain --no-owner --no-acl | gzip -9 > "${ARCHIVE_FILE}"
+else
+  pg_dump "${DB_URL}" --format=plain --no-owner --no-acl | gzip -9 > "${ARCHIVE_FILE}"
+fi
 
 chmod 600 "${ARCHIVE_FILE}"
 echo "[ICX-BACKUP] Backup created: ${ARCHIVE_FILE}"

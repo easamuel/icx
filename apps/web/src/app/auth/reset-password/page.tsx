@@ -63,27 +63,27 @@ export default function PasswordResetPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center bg-icx-slate px-4 py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex flex-col justify-center bg-zinc-50 px-4 py-12 sm:px-6 lg:px-8 text-zinc-950">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link href="/" className="flex justify-center">
-          <IcxLogo variant="sand-on-slate" className="h-11 w-auto" />
+          <IcxLogo variant="dark" />
         </Link>
-        <h1 className="mt-6 text-center text-2xl font-bold text-icx-sand">
-          Reset Your ICX Studios Password
+        <h1 className="mt-6 text-center text-3xl font-black text-zinc-950">
+          Reset Studio Password
         </h1>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark px-6 py-8 shadow-xl sm:px-10 space-y-5">
+        <div className="rounded-3xl border border-zinc-200 bg-white px-6 py-8 shadow-sm sm:px-10 space-y-5">
           {error && (
-            <div className="flex items-center gap-2 rounded-xl border border-icx-error/40 bg-icx-error/10 p-3.5 text-xs text-icx-error">
+            <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-700">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {message && step === 'confirm' && (
-            <div className="rounded-xl border border-icx-sand/30 bg-icx-slate p-3.5 text-xs text-icx-sand-muted">
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3.5 text-xs text-zinc-600">
               {message}
             </div>
           )}
@@ -91,7 +91,7 @@ export default function PasswordResetPage() {
           {step === 'request' && (
             <form onSubmit={handleRequestReset} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-icx-sand">
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-zinc-900">
                   Account Email Address
                 </label>
                 <input
@@ -99,14 +99,14 @@ export default function PasswordResetPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1.5 block w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3.5 py-2.5 text-sm text-icx-sand"
-                  placeholder="you@example.com"
+                  className="mt-1.5 block w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-4 py-3 text-sm text-zinc-950"
+                  placeholder="you@company.com"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-xl bg-icx-sand py-3 text-sm font-bold text-icx-slate"
+                className="w-full rounded-full bg-zinc-950 py-3.5 text-sm font-black text-white"
               >
                 {loading ? 'Sending Reset Token...' : 'Send Password Reset Token'}
               </button>
@@ -116,20 +116,20 @@ export default function PasswordResetPage() {
           {step === 'confirm' && (
             <form onSubmit={handleConfirmReset} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-icx-sand">
-                  Reset Token (From Email)
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-zinc-900">
+                  Reset Token
                 </label>
                 <input
                   type="text"
                   required
                   value={resetToken}
                   onChange={(e) => setResetToken(e.target.value)}
-                  className="mt-1.5 block w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3.5 py-2.5 text-xs font-mono text-icx-sand"
+                  className="mt-1.5 block w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-4 py-3 text-xs font-mono text-zinc-950"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-icx-sand">
-                  New Password (Min 8 Characters)
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-zinc-900">
+                  New Password
                 </label>
                 <input
                   type="password"
@@ -137,13 +137,13 @@ export default function PasswordResetPage() {
                   minLength={8}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="mt-1.5 block w-full rounded-xl border border-icx-slate-border bg-icx-slate px-3.5 py-2.5 text-sm text-icx-sand"
+                  className="mt-1.5 block w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-4 py-3 text-sm text-zinc-950"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-icx-sand py-3 text-sm font-bold text-icx-slate"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 py-3.5 text-sm font-black text-white"
               >
                 <KeyRound className="h-4 w-4" />
                 <span>{loading ? 'Updating Password...' : 'Confirm New Password'}</span>
@@ -153,13 +153,13 @@ export default function PasswordResetPage() {
 
           {step === 'done' && (
             <div className="text-center space-y-4">
-              <CheckCircle2 className="mx-auto h-10 w-10 text-icx-success" />
-              <p className="text-sm font-semibold text-icx-sand">
-                Your password has been updated with Argon2id encryption.
+              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
+              <p className="text-sm font-bold text-zinc-950">
+                Your password has been updated.
               </p>
               <Link
                 href="/auth/login"
-                className="inline-block rounded-xl bg-icx-sand px-6 py-2.5 text-xs font-extrabold text-icx-slate"
+                className="inline-block rounded-full bg-zinc-950 px-6 py-3 text-xs font-black text-white"
               >
                 Return to Sign In
               </Link>
@@ -170,4 +170,3 @@ export default function PasswordResetPage() {
     </div>
   );
 }
-

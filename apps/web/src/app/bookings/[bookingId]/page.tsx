@@ -13,10 +13,11 @@ import {
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import { AppNavbar } from '@/components/layout/AppNavbar';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { apiFetch, getStoredAccessToken } from '@/lib/api';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 interface BookingDetailView {
   booking: {
@@ -51,7 +52,6 @@ export default function CustomerBookingReviewPage() {
       const res = await apiFetch<BookingDetailView>(`/bookings/${bookingId}`);
       setData(res);
 
-      // Load authenticated burned-watermark previews for delivered shoot photos (PB-06)
       const token = getStoredAccessToken();
       const map: Record<string, string> = {};
       for (const item of res.deliverables) {
@@ -112,7 +112,7 @@ export default function CustomerBookingReviewPage() {
     if (!data) return;
     try {
       await apiFetch(`/bookings/${data.booking.id}/complete`, { method: 'POST' });
-      setBanner('Booking marked as Completed!');
+      setBanner('Shoot marked as Completed!');
       await loadBooking();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to complete booking.');
@@ -150,19 +150,19 @@ export default function CustomerBookingReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-icx-slate text-icx-sand">
+    <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-950">
       <AppNavbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
+      <main className="flex-1 mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
         {error && (
-          <div className="flex items-center gap-2 rounded-xl border border-icx-error/40 bg-icx-error/10 p-4 text-xs text-icx-error">
+          <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {banner && (
-          <div className="flex items-center gap-2 rounded-xl border border-icx-success/40 bg-icx-success/10 p-4 text-xs text-icx-success font-semibold">
+          <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold text-emerald-800">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>{banner}</span>
           </div>
@@ -170,17 +170,17 @@ export default function CustomerBookingReviewPage() {
 
         {data && (
           <>
-            <div className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <span className="rounded bg-icx-sand px-2.5 py-0.5 text-xs font-extrabold uppercase text-icx-slate">
+                <span className="rounded-full bg-zinc-950 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-white">
                   {data.booking.status.replace(/_/g, ' ')}
                 </span>
-                <h1 className="mt-2 text-2xl font-bold text-icx-sand">
+                <h1 className="mt-3 text-2xl sm:text-3xl font-black text-zinc-950">
                   {data.booking.service_title} — {data.booking.photographer_name}
                 </h1>
-                <p className="mt-1 text-xs text-icx-sand-muted">
-                  Slot: {new Date(data.booking.start_time).toLocaleString()} • Shoot Fee:{' '}
-                  {formatNaira(data.booking.price)}
+                <p className="mt-1 text-xs sm:text-sm text-zinc-600">
+                  Session Slot: {new Date(data.booking.start_time).toLocaleString()} • Session Fee:{' '}
+                  <strong className="text-zinc-950">{formatNaira(data.booking.price)}</strong>
                 </p>
               </div>
 
@@ -189,7 +189,7 @@ export default function CustomerBookingReviewPage() {
                   <button
                     type="button"
                     onClick={handlePayBooking}
-                    className="inline-flex items-center gap-2 rounded-xl bg-icx-sand px-5 py-3 text-xs font-extrabold text-icx-slate"
+                    className="inline-flex items-center gap-2 rounded-full bg-zinc-950 px-6 py-3.5 text-xs font-black text-white shadow-xl"
                   >
                     <CreditCard className="h-4 w-4" />
                     <span>Pay {formatNaira(data.booking.price)} via Paystack</span>
@@ -202,7 +202,7 @@ export default function CustomerBookingReviewPage() {
                   <button
                     type="button"
                     onClick={handleCancelBooking}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-icx-error/50 px-4 py-2.5 text-xs font-bold text-icx-error"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700"
                   >
                     <XCircle className="h-4 w-4" />
                     <span>Cancel Booking</span>
@@ -213,7 +213,7 @@ export default function CustomerBookingReviewPage() {
                   <button
                     type="button"
                     onClick={handleDownloadCleanZip}
-                    className="inline-flex items-center gap-2 rounded-xl bg-icx-success px-5 py-3 text-xs font-extrabold text-white"
+                    className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-3.5 text-xs font-black text-white shadow-xl"
                   >
                     <FileArchive className="h-4 w-4" />
                     <span>Download All Clean Shoot Files (24h ZIP)</span>
@@ -224,7 +224,7 @@ export default function CustomerBookingReviewPage() {
                   <button
                     type="button"
                     onClick={handleCompleteBooking}
-                    className="rounded-xl border border-icx-sand px-4 py-2.5 text-xs font-bold text-icx-sand"
+                    className="rounded-full border border-zinc-950 px-5 py-2.5 text-xs font-black text-zinc-950 hover:bg-zinc-950 hover:text-white transition-colors"
                   >
                     Mark Shoot Completed
                   </button>
@@ -232,23 +232,23 @@ export default function CustomerBookingReviewPage() {
               </div>
             </div>
 
-            {/* Watermarked Shoot Deliverables Gallery (PB-06) */}
-            <div className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6 space-y-4">
+            {/* Shoot Deliverables Gallery */}
+            <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-icx-sand">
-                  Shoot Deliverables ({data.deliverables.length})
+                <h2 className="text-lg font-black text-zinc-950">
+                  Shoot Deliverables Gallery ({data.deliverables.length})
                 </h2>
                 {!data.canDownloadClean && (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-icx-warning">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700">
                     <Lock className="h-3.5 w-3.5" />
-                    <span>Watermarked Previews Until Paid in Full</span>
+                    <span>Watermarked Proofs Until Session Fee Is Settled</span>
                   </span>
                 )}
               </div>
 
               {data.deliverables.length === 0 ? (
-                <p className="text-xs text-icx-sand-muted">
-                  Photographer has not uploaded shoot deliverables yet.
+                <p className="text-xs text-zinc-500">
+                  Your photographer has not uploaded shoot deliverables yet.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -256,18 +256,18 @@ export default function CustomerBookingReviewPage() {
                     <div
                       key={item.id}
                       onContextMenu={(e) => e.preventDefault()}
-                      className="overflow-hidden rounded-xl border border-icx-slate-border bg-icx-slate"
+                      className="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950"
                     >
                       {previewBlobs[item.id] ? (
                         <img
                           src={previewBlobs[item.id]}
-                          alt="Watermarked Shoot Proof"
+                          alt="Studio Proof"
                           draggable={false}
-                          className="h-56 w-full object-cover pointer-events-none"
+                          className="h-60 w-full object-cover pointer-events-none"
                         />
                       ) : (
-                        <div className="flex h-56 items-center justify-center text-xs text-icx-sand-muted">
-                          Loading burned watermark proof...
+                        <div className="flex h-60 items-center justify-center text-xs text-zinc-400">
+                          Loading studio proof...
                         </div>
                       )}
                     </div>
@@ -276,20 +276,19 @@ export default function CustomerBookingReviewPage() {
               )}
             </div>
 
-            {/* Rate Photographer After Delivery/Completion (PB-09) */}
             {['delivered', 'completed'].includes(data.booking.status) && (
               <form
                 onSubmit={handleRatePhotographer}
-                className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
               >
                 <div className="flex items-center gap-3">
-                  <Star className="h-6 w-6 text-icx-sand fill-icx-sand" />
+                  <Star className="h-6 w-6 text-zinc-950 fill-zinc-950" />
                   <div>
-                    <h3 className="text-sm font-bold text-icx-sand">
-                      Rate {data.booking.photographer_name}
+                    <h3 className="text-sm font-black text-zinc-950">
+                      Rate Your Experience with {data.booking.photographer_name}
                     </h3>
-                    <p className="text-xs text-icx-sand-muted">
-                      Share your experience from this completed shoot (PB-09).
+                    <p className="text-xs text-zinc-500">
+                      Your verified review helps maintain ICX Studios’ roster excellence.
                     </p>
                   </div>
                 </div>
@@ -299,7 +298,7 @@ export default function CustomerBookingReviewPage() {
                     aria-label="Star Rating"
                     value={rating}
                     onChange={(e) => setRating(Number(e.target.value))}
-                    className="rounded-xl border border-icx-slate-border bg-icx-slate px-3.5 py-2 text-xs font-bold text-icx-sand"
+                    className="rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-xs font-bold text-zinc-950"
                   >
                     <option value={5}>5 Stars — Exceptional</option>
                     <option value={4}>4 Stars — Very Good</option>
@@ -309,7 +308,7 @@ export default function CustomerBookingReviewPage() {
                   </select>
                   <button
                     type="submit"
-                    className="rounded-xl bg-icx-sand px-4 py-2 text-xs font-extrabold text-icx-slate"
+                    className="rounded-full bg-zinc-950 px-5 py-2.5 text-xs font-black text-white"
                   >
                     Submit Rating
                   </button>
@@ -319,7 +318,8 @@ export default function CustomerBookingReviewPage() {
           </>
         )}
       </main>
+
+      <AppFooter />
     </div>
   );
 }
-

@@ -9,11 +9,12 @@ import {
   Sliders,
 } from 'lucide-react';
 import { AppNavbar } from '@/components/layout/AppNavbar';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { TusFileUploader } from '@/components/upload/TusFileUploader';
 import { apiFetch, getStoredAccessToken } from '@/lib/api';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 interface EditorJobSummary {
   id: string;
@@ -285,6 +286,7 @@ export default function EditorWorkspacePage() {
           )}
         </div>
       </main>
+      <AppFooter />
     </div>
   );
 }

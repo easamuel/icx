@@ -13,11 +13,12 @@ import {
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import { AppNavbar } from '@/components/layout/AppNavbar';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { TusFileUploader } from '@/components/upload/TusFileUploader';
 import { apiFetch, getStoredAccessToken } from '@/lib/api';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 type AdminTab =
   | 'overview'
@@ -699,6 +700,7 @@ export default function AdminExecutiveDashboardPage() {
           </div>
         )}
       </main>
+      <AppFooter />
     </div>
   );
 }

@@ -1,22 +1,17 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { MoveHorizontal, ShieldAlert } from 'lucide-react';
+import { MoveHorizontal, ShieldCheck } from 'lucide-react';
 import { getStoredAccessToken } from '@/lib/api';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 interface BeforeAfterSliderProps {
   photoId: string;
   hasEdit: boolean;
 }
 
-/**
- * Interactive Before/After comparison slider (Requirement PE-07, NF-01, NF-02).
- * Streams server-generated 1,200px burned-in watermarked images via authenticated fetch.
- * Zero CSS watermarks; watermarks are burned into the server JPEG pixel stream.
- */
 export function BeforeAfterSlider({ photoId, hasEdit }: BeforeAfterSliderProps) {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [beforeBlobUrl, setBeforeBlobUrl] = useState<string | null>(null);
@@ -67,33 +62,31 @@ export function BeforeAfterSlider({ photoId, hasEdit }: BeforeAfterSliderProps) 
 
   if (loading) {
     return (
-      <div className="flex h-72 sm:h-96 w-full items-center justify-center rounded-2xl border border-icx-slate-border bg-icx-slate-dark text-xs text-icx-sand-muted">
-        Streaming server-burned watermarked proof (max 1,200px)...
+      <div className="flex h-80 sm:h-[460px] w-full items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-950 text-xs font-medium text-zinc-400">
+        Loading High-Definition Studio Proof...
       </div>
     );
   }
 
   return (
     <div
-      className="relative select-none overflow-hidden rounded-2xl border border-icx-slate-border bg-icx-slate-dark"
+      className="relative select-none overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950 shadow-xl"
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="relative h-72 sm:h-[440px] w-full">
-        {/* Base Layer: Edited Watermarked Preview (or Before if edit not uploaded yet) */}
+      <div className="relative h-80 sm:h-[480px] w-full">
         {(afterBlobUrl || beforeBlobUrl) ? (
           <img
             src={afterBlobUrl || beforeBlobUrl!}
-            alt="ICX Studios Burned-in Watermarked Edit Preview"
+            alt="ICX Studios Retouched Proof"
             draggable={false}
             className="h-full w-full object-contain pointer-events-none"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-icx-sand-muted">
-            Preview image processing...
+          <div className="flex h-full w-full items-center justify-center text-xs text-zinc-400">
+            Generating studio proof...
           </div>
         )}
 
-        {/* Clipped Layer: Original Watermarked Preview */}
         {hasEdit && beforeBlobUrl && afterBlobUrl && (
           <div
             className="absolute inset-0 overflow-hidden"
@@ -101,39 +94,36 @@ export function BeforeAfterSlider({ photoId, hasEdit }: BeforeAfterSliderProps) 
           >
             <img
               src={beforeBlobUrl}
-              alt="ICX Studios Watermarked Original"
+              alt="ICX Studios Original Source"
               draggable={false}
               className="h-full w-full object-contain pointer-events-none"
             />
           </div>
         )}
 
-        {/* Badges */}
-        <span className="absolute top-3 left-3 rounded-md bg-icx-slate/90 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-icx-sand">
-          Before (Original)
+        <span className="absolute top-4 left-4 rounded-full bg-black/80 backdrop-blur px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white border border-white/15">
+          Original Capture
         </span>
-        <span className="absolute top-3 right-3 rounded-md bg-icx-sand px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-icx-slate">
-          {hasEdit ? 'After (Retouched Proof)' : 'Awaiting Retouch'}
+        <span className="absolute top-4 right-4 rounded-full bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-zinc-950 shadow">
+          {hasEdit ? 'Master Retouch' : 'In Studio Queue'}
         </span>
 
-        {/* Divider Line */}
         {hasEdit && beforeBlobUrl && afterBlobUrl && (
           <div
-            className="absolute inset-y-0 w-0.5 bg-icx-sand shadow-lg pointer-events-none"
+            className="absolute inset-y-0 w-0.5 bg-white shadow-lg pointer-events-none"
             style={{ left: `${sliderPosition}%` }}
           >
-            <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-icx-sand text-icx-slate shadow-xl">
+            <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white text-zinc-950 shadow-2xl ring-4 ring-black/20">
               <MoveHorizontal className="h-4 w-4" />
             </div>
           </div>
         )}
       </div>
 
-      {/* Interactive Range Control for Keyboard, Touch & Mouse Accessibility (WCAG 2.1 AA NF-14) */}
       {hasEdit && (
-        <div className="border-t border-icx-slate-border bg-icx-slate px-4 py-3 flex items-center gap-4">
-          <span className="text-xs font-semibold text-icx-sand-muted shrink-0">
-            Before / After Slider
+        <div className="border-t border-zinc-800 bg-zinc-900 px-5 py-3.5 flex items-center gap-4 text-white">
+          <span className="text-xs font-semibold text-zinc-300 shrink-0">
+            Compare Before / After
           </span>
           <input
             type="range"
@@ -142,15 +132,14 @@ export function BeforeAfterSlider({ photoId, hasEdit }: BeforeAfterSliderProps) 
             value={sliderPosition}
             aria-label="Compare before and after photo edit"
             onChange={(e) => setSliderPosition(Number(e.target.value))}
-            className="w-full accent-icx-sand cursor-ew-resize"
+            className="w-full accent-white cursor-ew-resize"
           />
-          <span className="inline-flex items-center gap-1 text-[11px] text-icx-warning shrink-0">
-            <ShieldAlert className="h-3.5 w-3.5" />
-            <span>1,200px Burned Watermark</span>
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 shrink-0">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            <span>Protected Proof</span>
           </span>
         </div>
       )}
     </div>
   );
 }
-

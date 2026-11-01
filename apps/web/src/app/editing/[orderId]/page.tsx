@@ -13,12 +13,13 @@ import {
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import { AppNavbar } from '@/components/layout/AppNavbar';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { BeforeAfterSlider } from '@/components/editing/BeforeAfterSlider';
 import { TusFileUploader } from '@/components/upload/TusFileUploader';
 import { apiFetch } from '@/lib/api';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 interface OrderPhotoView {
   id: string;
@@ -148,18 +149,18 @@ export default function OrderInteractiveReviewPage() {
       setError(
         err instanceof Error
           ? err.message
-          : 'Clean download blocked: full payment is required.'
+          : 'Un-watermarked master download requires full balance settlement.'
       );
     }
   }
 
   return (
-    <div className="min-h-screen bg-icx-slate text-icx-sand">
+    <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-950">
       <AppNavbar />
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
         {error && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-icx-error/40 bg-icx-error/10 p-4 text-xs text-icx-error">
+          <div className="flex items-center gap-2.5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -167,27 +168,27 @@ export default function OrderInteractiveReviewPage() {
 
         {data && (
           <>
-            {/* Top Status & Payment Gate Banner */}
-            <div className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
+            {/* Top Status & Payment Gate Header */}
+            <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
               <div>
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="rounded-md bg-icx-sand px-2.5 py-0.5 text-xs font-extrabold uppercase text-icx-slate">
+                  <span className="rounded-full bg-zinc-950 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-white">
                     {data.order.status.replace(/_/g, ' ')}
                   </span>
-                  <span className="rounded-md border border-icx-slate-border px-2.5 py-0.5 text-xs font-semibold text-icx-sand">
+                  <span className="rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-[11px] font-bold uppercase text-zinc-800">
                     Payment: {data.order.payment_state.replace(/_/g, ' ')}
                   </span>
-                  <span className="text-xs text-icx-sand-muted">
+                  <span className="text-xs font-semibold text-zinc-500">
                     Order #{data.order.id.slice(0, 8)} • {data.order.package_name}
                   </span>
                 </div>
-                <h1 className="mt-2 text-xl sm:text-2xl font-bold text-icx-sand">
-                  Interactive Proof Review &amp; Clean Deliverable Gate
+                <h1 className="mt-3 text-2xl sm:text-3xl font-black text-zinc-950">
+                  Interactive Studio Proof Room
                 </h1>
-                <p className="mt-1 text-xs text-icx-sand-muted">
-                  Paid: {formatNaira(data.order.amount_paid)} of{' '}
+                <p className="mt-1 text-xs sm:text-sm text-zinc-600">
+                  Paid: <strong>{formatNaira(data.order.amount_paid)}</strong> of{' '}
                   {formatNaira(data.order.total_amount)} • Balance Remaining:{' '}
-                  <strong className="text-icx-sand">
+                  <strong className="text-zinc-950">
                     {formatNaira(data.order.balance_amount)}
                   </strong>
                 </p>
@@ -198,12 +199,12 @@ export default function OrderInteractiveReviewPage() {
                   <button
                     type="button"
                     onClick={handlePayBalance}
-                    className="inline-flex items-center gap-2 rounded-xl bg-icx-sand px-5 py-3 text-xs sm:text-sm font-extrabold text-icx-slate shadow-lg hover:bg-icx-sand-light"
+                    className="inline-flex items-center gap-2 rounded-full bg-zinc-950 px-6 py-3.5 text-xs sm:text-sm font-black text-white shadow-xl hover:bg-zinc-800"
                   >
                     <CreditCard className="h-4 w-4" />
                     <span>
                       {data.order.payment_state === 'deposit_paid'
-                        ? `Pay Remaining 30% Balance (${formatNaira(data.order.balance_amount)})`
+                        ? `Settle Remaining Balance (${formatNaira(data.order.balance_amount)})`
                         : 'Complete Checkout Payment'}
                     </span>
                   </button>
@@ -211,21 +212,21 @@ export default function OrderInteractiveReviewPage() {
                   <button
                     type="button"
                     onClick={() => handleGenerateCleanDownload('zip')}
-                    className="inline-flex items-center gap-2 rounded-xl bg-icx-success px-5 py-3 text-xs sm:text-sm font-extrabold text-white shadow-lg hover:opacity-95"
+                    className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-3.5 text-xs sm:text-sm font-black text-white shadow-xl hover:bg-emerald-700"
                   >
                     <FileArchive className="h-4 w-4" />
-                    <span>Download All Clean Files (24h Signed ZIP)</span>
+                    <span>Download All Uncompressed Masters (24h ZIP)</span>
                   </button>
                 )}
               </div>
             </div>
 
             {cleanDownloadUrl && cleanExpiresAt && (
-              <div className="rounded-xl border border-icx-success/40 bg-icx-success/10 p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2 text-icx-success font-semibold">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold">
                   <CheckCircle2 className="h-4 w-4" />
                   <span>
-                    24-Hour HMAC-Signed Clean Link Active (Expires:{' '}
+                    24-Hour Signed Master Link Active (Expires:{' '}
                     {new Date(cleanExpiresAt).toLocaleString()})
                   </span>
                 </div>
@@ -233,9 +234,9 @@ export default function OrderInteractiveReviewPage() {
                   href={cleanDownloadUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline font-bold text-icx-sand"
+                  className="underline font-black text-zinc-950"
                 >
-                  Direct Stream Link
+                  Open Direct Download Stream
                 </a>
               </div>
             )}
@@ -249,9 +250,9 @@ export default function OrderInteractiveReviewPage() {
                     hasEdit={activePhoto.hasEdit}
                   />
                 ) : (
-                  <div className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6">
-                    <h3 className="text-sm font-bold text-icx-sand mb-3">
-                      Upload Photos to This Order
+                  <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm">
+                    <h3 className="text-base font-black text-zinc-950 mb-4">
+                      Upload Source Photographs to This Order
                     </h3>
                     <TusFileUploader
                       uploadType="order_original"
@@ -262,7 +263,6 @@ export default function OrderInteractiveReviewPage() {
                   </div>
                 )}
 
-                {/* Photo Selector Strip */}
                 {data.photos.length > 0 && (
                   <div className="flex items-center gap-2.5 overflow-x-auto pb-2">
                     {data.photos.map((photo, index) => (
@@ -270,70 +270,70 @@ export default function OrderInteractiveReviewPage() {
                         key={photo.id}
                         type="button"
                         onClick={() => setSelectedPhotoId(photo.id)}
-                        className={`rounded-xl border px-3.5 py-2 text-xs font-semibold shrink-0 transition-all ${
+                        className={`rounded-full border px-4 py-2 text-xs font-extrabold shrink-0 transition-all ${
                           activePhoto?.id === photo.id
-                            ? 'border-icx-sand bg-icx-sand text-icx-slate'
-                            : 'border-icx-slate-border bg-icx-slate-dark text-icx-sand'
+                            ? 'border-zinc-950 bg-zinc-950 text-white shadow'
+                            : 'border-zinc-200 bg-white text-zinc-800 hover:border-zinc-950'
                         }`}
                       >
-                        Photo #{index + 1} (v{photo.version})
+                        Frame #{index + 1} (v{photo.version})
                       </button>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Right Column: Photo-Level Revision Drawer & Clean Single-File Gate */}
-              <div className="rounded-2xl border border-icx-slate-border bg-icx-slate-dark p-6 space-y-6 h-fit">
+              {/* Right Column: Revision Drawer & Master Unlock */}
+              <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-6 h-fit">
                 <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-icx-sand">
-                    Photo Revision &amp; Clean Unlock
+                  <h2 className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                    Frame Inspection &amp; Master Unlock
                   </h2>
                   {activePhoto && (
-                    <p className="mt-1 text-xs text-icx-sand-muted">
-                      Free Revisions Used: {activePhoto.revisions.length} /{' '}
+                    <p className="mt-1 text-xs font-semibold text-zinc-600">
+                      Complimentary Revisions Used: {activePhoto.revisions.length} /{' '}
                       {data.order.free_revisions}
                     </p>
                   )}
                 </div>
 
-                {/* Single Photo Clean Download Button (Payment-Gated PE-10) */}
                 {activePhoto && (
                   <div>
                     {data.canDownloadClean ? (
                       <button
                         type="button"
                         onClick={() => handleGenerateCleanDownload(activePhoto.id)}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-icx-sand py-3 text-xs font-extrabold text-icx-slate hover:bg-icx-sand-light"
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 py-3.5 text-xs font-black text-white hover:bg-zinc-800"
                       >
                         <Download className="h-4 w-4" />
-                        <span>Download Clean Full-Resolution Photo (24h Link)</span>
+                        <span>Download Clean Full-Resolution Frame</span>
                       </button>
                     ) : (
-                      <div className="rounded-xl border border-icx-warning/30 bg-icx-slate p-3.5 text-xs text-icx-sand-muted flex items-start gap-2.5">
-                        <Lock className="h-4 w-4 text-icx-warning shrink-0 mt-0.5" />
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 flex items-start gap-2.5">
+                        <Lock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                         <span>
-                          Clean full-resolution files are locked in private storage until the
-                          30% balance is confirmed by Paystack webhook.
+                          Un-watermarked full-resolution masters are locked in the studio vault until the remaining 30% balance is settled.
                         </span>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Request Revision Form (PE-08) */}
                 {activePhoto && (
-                  <form onSubmit={handleRequestRevision} className="space-y-3 border-t border-icx-slate-border pt-5">
-                    <label className="block text-xs font-semibold text-icx-sand">
-                      Request Revision on Selected Photo
+                  <form
+                    onSubmit={handleRequestRevision}
+                    className="space-y-3 border-t border-zinc-200 pt-5"
+                  >
+                    <label className="block text-xs font-extrabold text-zinc-950">
+                      Request Retouching Adjustment on This Frame
                     </label>
                     <textarea
                       rows={3}
                       required
                       value={revisionNote}
                       onChange={(e) => setRevisionNote(e.target.value)}
-                      placeholder="Describe specific retouching adjustments needed on this photo..."
-                      className="w-full rounded-xl border border-icx-slate-border bg-icx-slate p-3 text-xs text-icx-sand focus:border-icx-sand focus:outline-none"
+                      placeholder="Describe specific retouching refinements needed on this frame..."
+                      className="w-full rounded-2xl border border-zinc-300 bg-zinc-50 p-3.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
                     />
                     <button
                       type="submit"
@@ -341,34 +341,33 @@ export default function OrderInteractiveReviewPage() {
                         submittingRevision ||
                         activePhoto.revisions.length >= data.order.free_revisions
                       }
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-icx-sand/40 bg-icx-slate py-2.5 text-xs font-bold text-icx-sand hover:bg-icx-slate-elevated disabled:opacity-40"
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-zinc-950 bg-white py-3 text-xs font-black text-zinc-950 hover:bg-zinc-950 hover:text-white disabled:opacity-40 transition-colors"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       <span>
                         {activePhoto.revisions.length >= data.order.free_revisions
-                          ? 'Free Revisions Exhausted'
+                          ? 'Complimentary Revisions Used'
                           : submittingRevision
-                            ? 'Submitting...'
-                            : 'Submit Photo Revision Request'}
+                            ? 'Sending to Retoucher...'
+                            : 'Submit Revision Note'}
                       </span>
                     </button>
                   </form>
                 )}
 
-                {/* Revision History */}
                 {activePhoto && activePhoto.revisions.length > 0 && (
-                  <div className="space-y-2 border-t border-icx-slate-border pt-4">
-                    <h3 className="text-xs font-bold uppercase text-icx-sand-muted">
-                      Revision History
+                  <div className="space-y-2 border-t border-zinc-200 pt-4">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
+                      Revision Log
                     </h3>
                     {activePhoto.revisions.map((rev) => (
                       <div
                         key={rev.id}
-                        className="rounded-lg border border-icx-slate-border bg-icx-slate p-3 text-xs"
+                        className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs"
                       >
-                        <p className="text-icx-sand">{rev.notes}</p>
-                        <p className="mt-1 text-[10px] text-icx-sand-muted">
-                          {rev.resolved_at ? 'Resolved by Editor' : 'In Revision Queue'} •{' '}
+                        <p className="font-medium text-zinc-950">{rev.notes}</p>
+                        <p className="mt-1 text-[10px] font-semibold text-zinc-500">
+                          {rev.resolved_at ? 'Resolved by Retoucher' : 'In Retoucher Queue'} •{' '}
                           {new Date(rev.requested_at).toLocaleString()}
                         </p>
                       </div>
@@ -380,7 +379,8 @@ export default function OrderInteractiveReviewPage() {
           </>
         )}
       </main>
+
+      <AppFooter />
     </div>
   );
 }
-

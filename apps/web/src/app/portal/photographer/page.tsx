@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import { AppNavbar } from '@/components/layout/AppNavbar';
+import { AppFooter } from '@/components/layout/AppFooter';
 import { TusFileUploader } from '@/components/upload/TusFileUploader';
 import { apiFetch } from '@/lib/api';
 
@@ -383,7 +384,7 @@ export default function PhotographerPortalPage() {
             >
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-icx-sand">
-                  Profile, Bio &amp; Custom Services Manager (Requirement PP-01)
+                  Profile, Bio &amp; Custom Services Manager
                 </h2>
                 {profileSavedMsg && (
                   <span className="text-xs font-bold text-icx-success">
@@ -458,6 +459,7 @@ export default function PhotographerPortalPage() {
           </>
         )}
       </main>
+      <AppFooter />
     </div>
   );
 }
