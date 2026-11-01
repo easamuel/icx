@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: icx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-icx_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-icx_secret_password}
+      POSTGRES_DB: ${POSTGRES_DB:-icx_studios}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - icx_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-icx_admin} -d ${POSTGRES_DB:-icx_studios}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: icx-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-icx_redis_secret}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - icx_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-icx_redis_secret}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  icx_pgdata:
+  icx_redisdata:
+

@@ -1,0 +1,17 @@
+{
+  "name": "@icx/mobile",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@icx/shared-types": "*",
+    "@icx/ui-core": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
+
