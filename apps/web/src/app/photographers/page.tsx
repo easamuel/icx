@@ -26,8 +26,11 @@ type DirectoryPhotographer = PhotographerProfileRecord & { full_name: string };
 
 const LOCATION_PILLS = ['All', 'Victoria Island', 'Ikoyi', 'Lekki', 'Abuja'];
 
+const DEFAULT_PORTFOLIO_IMG =
+  'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=1000&q=85';
+
 const FALLBACK_PORTFOLIO = [
-  'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=1000&q=85',
+  DEFAULT_PORTFOLIO_IMG,
   'https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=1000&q=85',
   'https://images.unsplash.com/photo-1589156280159-27698a70f29e?auto=format&fit=crop&w=1000&q=85',
   'https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&w=1000&q=85',
@@ -231,7 +234,7 @@ export default function PhotographerDirectoryPage() {
                       src={coverImg}
                       alt={photog.full_name}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = FALLBACK_PORTFOLIO[0];
+                        (e.target as HTMLImageElement).src = DEFAULT_PORTFOLIO_IMG;
                       }}
                       className="h-20 w-20 rounded-2xl object-cover shrink-0 bg-zinc-200"
                     />
@@ -322,7 +325,7 @@ export default function PhotographerDirectoryPage() {
                       src={activePortfolioImg || galleryUrls[0]}
                       alt={`${selectedPhotographer.full_name} Lookbook`}
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = FALLBACK_PORTFOLIO[0];
+                        (e.target as HTMLImageElement).src = DEFAULT_PORTFOLIO_IMG;
                       }}
                       className="h-full w-full object-cover transition-all duration-300"
                     />
@@ -343,7 +346,9 @@ export default function PhotographerDirectoryPage() {
                           src={url}
                           alt={`Portfolio ${idx + 1}`}
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = FALLBACK_PORTFOLIO[idx % FALLBACK_PORTFOLIO.length];
+                            (e.target as HTMLImageElement).src =
+                              FALLBACK_PORTFOLIO[idx % FALLBACK_PORTFOLIO.length] ??
+                              DEFAULT_PORTFOLIO_IMG;
                           }}
                           className="h-full w-full object-cover"
                         />
