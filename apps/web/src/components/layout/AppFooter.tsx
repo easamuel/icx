@@ -70,10 +70,10 @@ export function AppFooter() {
             </ul>
           </div>
 
-          {/* Column 4: Account & Partners */}
+          {/* Column 4: Account & Support */}
           <div className="space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-              Account
+              Account &amp; Legal
             </h3>
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium text-zinc-300">
               <li>
@@ -82,21 +82,44 @@ export function AppFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/auth/register" className="hover:text-white transition-colors">
-                  Create Account
+                <Link href="/portal/photographer" className="hover:text-white transition-colors">
+                  Photographer Portal
                 </Link>
               </li>
               <li>
-                <Link href="/portal/photographer" className="hover:text-white transition-colors">
-                  Photographer Portal
+                <Link href="/support" className="hover:text-white transition-colors">
+                  Support &amp; Concierge
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy" className="hover:text-white transition-colors">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="hover:text-white transition-colors">
+                  Terms of Service
                 </Link>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-12 border-t border-zinc-800/80 pt-8 text-xs text-zinc-500">
+        <div className="mt-12 border-t border-zinc-800/80 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
           <p>© {new Date().getFullYear()} ICX Studios (LearnArk Technology Limited). All rights reserved.</p>
+          <div className="flex flex-wrap items-center gap-4 text-zinc-400">
+            <Link href="/privacy" className="hover:text-white transition-colors">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:text-white transition-colors">
+              Terms of Service
+            </Link>
+            <span>•</span>
+            <Link href="/support" className="hover:text-white transition-colors">
+              Support Desk
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
