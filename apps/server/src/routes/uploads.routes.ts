@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import fs from 'node:fs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import crypto from 'node:crypto';
@@ -498,6 +499,94 @@ uploadsRouter.get(
         asDownload: true,
         downloadFilename: `ICX_Shoot_${targetPhoto.id.slice(0, 8)}${path.extname(cleanKey)}`,
       });
+    }
+  }
+);
+
+// ============================================================================
+// 7. PUBLIC MEDIA STORAGE (EQUIPMENT & PHOTOGRAPHER PORTFOLIO IMAGES)
+// ============================================================================
+uploadsRouter.post(
+  '/media',
+  requireAuth,
+  rateLimiter({ scope: 'media_upload', windowSeconds: 60, maxRequests: 60 }),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { base64Data, filename } = req.body as {
+        base64Data?: string;
+        filename?: string;
+      };
+
+      if (!base64Data) {
+        res.status(400).json({ error: 'MISSING_DATA', message: 'base64Data is required.' });
+        return;
+      }
+
+      let mimeType = 'image/jpeg';
+      let ext = '.jpg';
+      const match = base64Data.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,/);
+      if (match) {
+        mimeType = match[1];
+        if (mimeType.includes('png')) ext = '.png';
+        else if (mimeType.includes('webp')) ext = '.webp';
+        else if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = '.jpg';
+      }
+
+      const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
+      const buffer = Buffer.from(cleanBase64, 'base64');
+
+      if (buffer.byteLength > 20 * 1024 * 1024) {
+        res.status(413).json({ error: 'FILE_TOO_LARGE', message: 'Image must be under 20MB.' });
+        return;
+      }
+
+      const mediaDir = path.resolve(process.cwd(), 'storage/public_media');
+      await fsp.mkdir(mediaDir, { recursive: true });
+
+      const safeName = `${crypto.randomUUID()}${ext}`;
+      const filePath = path.join(mediaDir, safeName);
+      await fsp.writeFile(filePath, buffer);
+
+      const mediaUrl = `/api/v1/uploads/media/${safeName}`;
+      res.status(201).json({ url: mediaUrl, filename: safeName });
+    } catch (error) {
+      res.status(500).json({
+        error: 'MEDIA_SAVE_FAILED',
+        message: error instanceof Error ? error.message : 'Failed to save media asset.',
+      });
+    }
+  }
+);
+
+uploadsRouter.get(
+  '/media/:filename',
+  async (req: Request, res: Response): Promise<void> => {
+    const rawFilename = path.basename(String(req.params.filename || ''));
+    const mediaDir = path.resolve(process.cwd(), 'storage/public_media');
+    const filePath = path.join(mediaDir, rawFilename);
+
+    if (!filePath.startsWith(mediaDir)) {
+      res.status(403).json({ error: 'ACCESS_DENIED' });
+      return;
+    }
+
+    try {
+      await fsp.access(filePath);
+      const ext = path.extname(rawFilename).toLowerCase();
+      const contentType =
+        ext === '.png'
+          ? 'image/png'
+          : ext === '.webp'
+          ? 'image/webp'
+          : ext === '.gif'
+          ? 'image/gif'
+          : 'image/jpeg';
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      fs.createReadStream(filePath).pipe(res);
+    } catch {
+      res.status(404).json({ error: 'NOT_FOUND' });
     }
   }
 );

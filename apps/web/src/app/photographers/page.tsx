@@ -53,11 +53,23 @@ const BANNED_NON_AFRICAN_IDS = [
   '1492691527719',
 ];
 
-function getValidPortfolioUrls(urls?: string[]): string[] {
-  const valid = (urls || []).filter(
+function getValidPortfolioUrls(urls?: string[] | any): string[] {
+  if (!urls) return FALLBACK_PORTFOLIO;
+  let list: any[] = [];
+  if (Array.isArray(urls)) {
+    list = urls;
+  } else if (typeof urls === 'string') {
+    try {
+      const parsed = JSON.parse(urls);
+      list = Array.isArray(parsed) ? parsed : [urls];
+    } catch {
+      list = [urls];
+    }
+  }
+  const valid = list.filter(
     (u) =>
       typeof u === 'string' &&
-      (u.startsWith('http') || u.startsWith('/')) &&
+      (u.startsWith('http') || u.startsWith('/') || u.startsWith('data:image/')) &&
       !BANNED_NON_AFRICAN_IDS.some((badId) => u.includes(badId))
   );
   return valid.length > 0 ? valid : FALLBACK_PORTFOLIO;

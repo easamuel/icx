@@ -25,8 +25,24 @@ interface DayAvailability {
 const FALLBACK_GEAR_IMG =
   'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85';
 
-function getGearImage(photos?: string[]): string {
-  const valid = (photos || []).find((p) => typeof p === 'string' && (p.startsWith('http') || p.startsWith('/')));
+function getGearImage(photos?: string[] | any): string {
+  if (!photos) return FALLBACK_GEAR_IMG;
+  let list: any[] = [];
+  if (Array.isArray(photos)) {
+    list = photos;
+  } else if (typeof photos === 'string') {
+    try {
+      const parsed = JSON.parse(photos);
+      list = Array.isArray(parsed) ? parsed : [photos];
+    } catch {
+      list = [photos];
+    }
+  }
+  const valid = list.find(
+    (p) =>
+      typeof p === 'string' &&
+      (p.startsWith('http') || p.startsWith('/') || p.startsWith('data:image/'))
+  );
   return valid || FALLBACK_GEAR_IMG;
 }
 

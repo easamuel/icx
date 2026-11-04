@@ -61,6 +61,27 @@ function formatAdminDateTime(iso: string, endIso?: string) {
   }
 }
 
+function resolveGearPhoto(photos: any): string {
+  if (!photos) return DEFAULT_GEAR_IMG;
+  let list: any[] = [];
+  if (Array.isArray(photos)) {
+    list = photos;
+  } else if (typeof photos === 'string') {
+    try {
+      const parsed = JSON.parse(photos);
+      list = Array.isArray(parsed) ? parsed : [photos];
+    } catch {
+      list = [photos];
+    }
+  }
+  const valid = list.find(
+    (p) =>
+      typeof p === 'string' &&
+      (p.startsWith('http') || p.startsWith('/') || p.startsWith('data:image/'))
+  );
+  return valid || DEFAULT_GEAR_IMG;
+}
+
 type AdminTab =
   | 'overview'
   | 'users'
@@ -265,9 +286,24 @@ export default function AdminExecutiveDashboardPage() {
     setPhotoUploading(true);
     setEquipPhotoFileName(file.name);
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       if (typeof reader.result === 'string') {
-        setNewEquipPhotoUrl(reader.result);
+        const dataUri = reader.result;
+        setNewEquipPhotoUrl(dataUri);
+        try {
+          const res = await apiFetch<{ url: string }>('/uploads/media', {
+            method: 'POST',
+            body: JSON.stringify({
+              base64Data: dataUri,
+              filename: file.name,
+            }),
+          });
+          if (res.url) {
+            setNewEquipPhotoUrl(res.url);
+          }
+        } catch {
+          // Keep dataUri as fallback
+        }
       }
       setPhotoUploading(false);
     };
@@ -1394,7 +1430,7 @@ export default function AdminExecutiveDashboardPage() {
                       <div className="flex gap-3 items-center">
                         <div className="h-16 w-16 rounded-xl overflow-hidden bg-zinc-200 shrink-0 border border-zinc-200 shadow-sm">
                           <img
-                            src={(Array.isArray(item.photos) && item.photos[0]) || (typeof item.photos === 'string' ? item.photos : DEFAULT_GEAR_IMG)}
+                            src={resolveGearPhoto(item.photos)}
                             alt={item.name}
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = DEFAULT_GEAR_IMG;
