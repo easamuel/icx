@@ -523,6 +523,15 @@ adminRouter.patch('/users/:userId', async (req: Request, res: Response): Promise
     [role ?? null, status ?? null, verify_email ?? false, userId]
   );
 
+  if (role === 'photographer') {
+    await query(
+      `INSERT INTO photographer_profiles (user_id, bio, location, approval_status, services_and_prices, portfolio_urls)
+       VALUES ($1, 'Professional Photographer at ICX Studios', 'Lagos, Nigeria', 'approved', '[]'::jsonb, '[]'::jsonb)
+       ON CONFLICT (user_id) DO UPDATE SET approval_status = 'approved'`,
+      [userId]
+    );
+  }
+
   await recordAuditEvent({
     actorId: req.user!.sub,
     action: 'ADMIN_USER_MODIFIED',

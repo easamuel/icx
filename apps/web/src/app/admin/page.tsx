@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   FileSpreadsheet,
@@ -14,12 +15,17 @@ import {
   Calendar,
   MailCheck,
   Clock,
+  ExternalLink,
+  LogOut,
+  RefreshCw,
+  Search,
+  LayoutDashboard,
+  ArrowRight,
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
-import { AppNavbar } from '@/components/layout/AppNavbar';
-import { AppFooter } from '@/components/layout/AppFooter';
+import { IcxLogo } from '@/components/brand/IcxLogo';
 import { TusFileUploader } from '@/components/upload/TusFileUploader';
-import { apiFetch, getStoredAccessToken } from '@/lib/api';
+import { apiFetch, clearStoredSession, getStoredAccessToken } from '@/lib/api';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -62,6 +68,8 @@ type AdminTab =
 export default function AdminExecutiveDashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [adminUser, setAdminUser] = useState<{ full_name: string; email: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [overview, setOverview] = useState<Record<string, any> | null>(null);
   const [users, setUsers] = useState<Array<Record<string, any>>>([]);
   const [userFilter, setUserFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
@@ -88,6 +96,22 @@ export default function AdminExecutiveDashboardPage() {
   const [postingEquip, setPostingEquip] = useState(false);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('icx_user');
+      if (raw) {
+        setAdminUser(JSON.parse(raw));
+      }
+    } catch {
+      // Ignore parse error
+    }
+  }, []);
+
+  function handleLogout() {
+    clearStoredSession();
+    router.push('/l/admin/login');
+  }
 
   const loadAdminData = useCallback(async () => {
     try {
@@ -303,96 +327,159 @@ export default function AdminExecutiveDashboardPage() {
   const confirmedUsersCount = users.filter((u) => Boolean(u.email_verified_at)).length;
   const unconfirmedUsersCount = users.length - confirmedUsersCount;
   const filteredUsers = users.filter((u) => {
-    if (userFilter === 'confirmed') return Boolean(u.email_verified_at);
-    if (userFilter === 'unconfirmed') return !u.email_verified_at;
+    if (userFilter === 'confirmed' && !u.email_verified_at) return false;
+    if (userFilter === 'unconfirmed' && u.email_verified_at) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchName = String(u.full_name || '').toLowerCase().includes(q);
+      const matchEmail = String(u.email || '').toLowerCase().includes(q);
+      const matchPhone = String(u.phone || '').toLowerCase().includes(q);
+      const matchRole = String(u.role || '').toLowerCase().includes(q);
+      if (!matchName && !matchEmail && !matchPhone && !matchRole) return false;
+    }
     return true;
   });
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-950">
-      <AppNavbar />
+      {/* Executive Console Header */}
+      <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4">
+            <Link href="/" target="_blank" title="View Live Public Storefront" className="flex items-center gap-2 group">
+              <IcxLogo variant="dark" mark="slash" showText={true} />
+            </Link>
+            <div className="h-5 w-px bg-zinc-200 hidden sm:block" />
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#E6D8C3]">
+                Executive Console
+              </span>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                <span>Production Live</span>
+              </span>
+            </div>
+          </div>
 
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              target="_blank"
+              className="hidden md:inline-flex items-center gap-1 text-xs font-bold text-zinc-600 hover:text-zinc-950 transition-colors"
+            >
+              <span>Public Storefront</span>
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+
+            <div className="h-4 w-px bg-zinc-200 hidden md:block" />
+
+            {/* Admin identity badge */}
+            <div className="flex items-center gap-2.5">
+              <div className="text-right hidden sm:block">
+                <div className="text-xs font-black text-zinc-950 leading-none">
+                  {adminUser?.full_name || 'Executive Director'}
+                </div>
+                <div className="text-[10px] font-bold text-zinc-500 mt-0.5">
+                  {adminUser?.email || 'admin@icxstudios.com'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-100 hover:bg-zinc-200 px-3 py-1.5 text-xs font-black text-zinc-800 transition-colors cursor-pointer"
+                title="Sign Out of Executive Console"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Executive Sub-Header with Quick Actions */}
       <div className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
-              ICX Studios Executive Control Center
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-950">
+              Operations &amp; Fleet Management
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-zinc-600">
-              Oversee registered users &amp; email confirmations, photographer bookings, retouching queues, cinema fleet dispatches, and financial ledgers.
+              Real-time directory, shoot bookings, high-res retouching queues, and cinema equipment vaults.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2.5">
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() =>
-                void handleDownloadCsv('/admin/payments', 'icx_payments_ledger.csv')
-              }
-              className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-4 py-2.5 text-xs font-black text-white shadow-sm hover:bg-zinc-800"
+              onClick={() => void handleDownloadCsv('/admin/payments', 'icx_payments_ledger.csv')}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 px-3.5 py-2 text-xs font-black text-zinc-800 transition-colors"
             >
-              <FileSpreadsheet className="h-4 w-4" />
-              <span>Export Payments CSV</span>
+              <FileSpreadsheet className="h-3.5 w-3.5 text-zinc-700" />
+              <span>Payments CSV</span>
             </button>
             <button
               type="button"
-              onClick={() =>
-                void handleDownloadCsv('/admin/audit-logs', 'icx_audit_events.csv')
-              }
-              className="inline-flex items-center gap-1.5 rounded-full border border-zinc-300 bg-white px-4 py-2.5 text-xs font-bold text-zinc-900 hover:border-zinc-950"
+              onClick={() => void handleDownloadCsv('/admin/audit-logs', 'icx_audit_events.csv')}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 px-3.5 py-2 text-xs font-black text-zinc-800 transition-colors"
             >
-              <FileSpreadsheet className="h-4 w-4" />
-              <span>Export Audit CSV</span>
+              <FileSpreadsheet className="h-3.5 w-3.5 text-zinc-700" />
+              <span>Audit Trail CSV</span>
             </button>
+            <button
+              type="button"
+              onClick={() => void loadAdminData()}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 px-3.5 py-2 text-xs font-black text-white shadow transition-colors"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span>Refresh Live Data</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Navigation Tabs Bar */}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-1.5 overflow-x-auto py-2.5 no-scrollbar">
+            {[
+              { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+              { id: 'users', label: 'Users & Roles', count: users.length, icon: Users },
+              { id: 'bookings', label: 'Bookings', count: bookings.length, icon: Calendar },
+              { id: 'jobs', label: 'Retouching', count: jobs.length, icon: Sliders },
+              { id: 'photographers', label: 'Photographers', count: photographers.length, icon: Camera },
+              { id: 'equipment', label: 'Cinema Fleet', count: equipment.length, icon: Package },
+              { id: 'config', label: 'Settings', icon: Shield },
+              { id: 'audit', label: 'Audit Trail', count: auditLogs.length, icon: Clock },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as AdminTab)}
+                  className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-black shrink-0 transition-all ${
+                    active
+                      ? 'bg-zinc-950 text-white shadow-sm'
+                      : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span>{tab.label}</span>
+                  {typeof tab.count === 'number' && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 text-[10px] font-black ${
+                        active ? 'bg-white/20 text-white' : 'bg-zinc-200 text-zinc-700'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
-
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
-        {error && (
-          <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {statusBanner && (
-          <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold text-emerald-800">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>{statusBanner}</span>
-          </div>
-        )}
-
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto border-b border-zinc-200 pb-3">
-          {[
-            { id: 'overview', label: '01. Daily Metrics', icon: Shield },
-            { id: 'users', label: `02. Users & Email Status (${users.length})`, icon: MailCheck },
-            { id: 'bookings', label: `03. Shoot Bookings (${bookings.length})`, icon: Calendar },
-            { id: 'jobs', label: `04. Retouching Queue (${jobs.length})`, icon: Sliders },
-            { id: 'photographers', label: `05. Photographer Roster (${photographers.length})`, icon: Camera },
-            { id: 'equipment', label: `06. Cinema Vault & Rentage (${equipment.length})`, icon: Package },
-            { id: 'config', label: '07. Pricing, Watermark & Staff', icon: Users },
-            { id: 'audit', label: '08. Immutable Audit Ledger', icon: FileSpreadsheet },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as AdminTab)}
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-black shrink-0 transition-all ${
-                  active
-                    ? 'bg-zinc-950 text-white shadow'
-                    : 'border border-zinc-200 bg-white text-zinc-600 hover:border-zinc-950 hover:text-zinc-950'
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
 
         {/* TAB 1: DAILY ACTIVE METRICS OVERVIEW */}
         {activeTab === 'overview' && overview && (
@@ -463,16 +550,16 @@ export default function AdminExecutiveDashboardPage() {
           </div>
         )}
 
-        {/* TAB 2: USERS & EMAIL CONFIRMATION STATUS */}
+        {/* TAB 2: USER DIRECTORY & ROLE MANAGEMENT */}
         {activeTab === 'users' && (
           <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-5">
               <div>
                 <h2 className="text-lg font-black text-zinc-950">
-                  Registered Users &amp; Email Confirmation Directory ({users.length})
+                  User Accounts &amp; Role Management ({users.length})
                 </h2>
                 <p className="mt-1 text-xs text-zinc-600">
-                  Track every client, photographer, retoucher, and administrator—including real-time email confirmation status.
+                  Manage accounts, verify emails in 1-click, and upgrade customer profiles to certified ICX photographers.
                 </p>
               </div>
 
@@ -483,7 +570,7 @@ export default function AdminExecutiveDashboardPage() {
                   className={`rounded-full px-4 py-2 text-xs font-black transition-all ${
                     userFilter === 'all'
                       ? 'bg-zinc-950 text-white'
-                      : 'border border-zinc-200 bg-zinc-50 text-zinc-700'
+                      : 'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100'
                   }`}
                 >
                   All ({users.length})
@@ -494,7 +581,7 @@ export default function AdminExecutiveDashboardPage() {
                   className={`rounded-full px-4 py-2 text-xs font-black transition-all ${
                     userFilter === 'confirmed'
                       ? 'bg-emerald-600 text-white'
-                      : 'border border-emerald-200 bg-emerald-50 text-emerald-800'
+                      : 'border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
                   }`}
                 >
                   Confirmed Email ({confirmedUsersCount})
@@ -505,7 +592,7 @@ export default function AdminExecutiveDashboardPage() {
                   className={`rounded-full px-4 py-2 text-xs font-black transition-all ${
                     userFilter === 'unconfirmed'
                       ? 'bg-amber-500 text-zinc-950'
-                      : 'border border-amber-200 bg-amber-50 text-amber-900'
+                      : 'border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100'
                   }`}
                 >
                   Unconfirmed Email ({unconfirmedUsersCount})
@@ -513,87 +600,150 @@ export default function AdminExecutiveDashboardPage() {
               </div>
             </div>
 
+            {/* Live Filter Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Search users by name, email, phone number, or role..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50/70 pl-10 pr-12 py-2.5 text-xs font-medium text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-zinc-950/10 focus:border-zinc-950 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-zinc-400 hover:text-zinc-700 font-bold"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
             <div className="space-y-3">
-              {filteredUsers.map((u) => {
-                const isVerified = Boolean(u.email_verified_at);
-                return (
-                  <div
-                    key={u.id}
-                    className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-black text-zinc-950">
-                          {u.full_name}
-                        </span>
-                        <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
-                          {u.role}
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
-                            u.status === 'active'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          {u.status}
-                        </span>
-                        {isVerified ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-0.5 text-[10px] font-black uppercase text-white">
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span>
-                              Email Confirmed ({new Date(u.email_verified_at).toLocaleDateString()})
+              {filteredUsers.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-zinc-200 p-8 text-center text-xs text-zinc-500">
+                  No accounts found matching &ldquo;{searchQuery || userFilter}&rdquo;
+                </div>
+              ) : (
+                filteredUsers.map((u) => {
+                  const isVerified = Boolean(u.email_verified_at);
+                  const isCustomer = u.role === 'customer';
+                  const isPhotog = u.role === 'photographer';
+                  const isEditor = u.role === 'editor';
+                  const isAdmin = u.role === 'admin';
+
+                  return (
+                    <div
+                      key={u.id}
+                      className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-zinc-300 transition-colors"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-black text-zinc-950">
+                            {u.full_name || 'Unnamed Account'}
+                          </span>
+
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                              isAdmin
+                                ? 'bg-zinc-950 text-[#E6D8C3]'
+                                : isPhotog
+                                ? 'bg-purple-100 text-purple-900 border border-purple-200'
+                                : isEditor
+                                ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                                : 'bg-zinc-200 text-zinc-800'
+                            }`}
+                          >
+                            {u.role}
+                          </span>
+
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+                              u.status === 'active'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {u.status}
+                          </span>
+
+                          {isVerified ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>
+                                Email Confirmed ({new Date(u.email_verified_at).toLocaleDateString()})
+                              </span>
                             </span>
-                          </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[10px] font-black uppercase text-amber-900">
+                              <Clock className="h-3 w-3" />
+                              <span>Awaiting Email Confirmation</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs font-medium text-zinc-600">
+                          {u.email} • {u.phone || 'No phone'} • Joined {new Date(u.created_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        {/* 1-Click Upgrade to Photographer for Clients */}
+                        {isCustomer && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleModifyUser(u.id, { role: 'photographer' })
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-full border border-purple-300 bg-purple-50 px-3.5 py-1.5 text-xs font-black text-purple-900 hover:bg-purple-100 transition-colors shadow-xs"
+                            title="Upgrade this client account into a certified ICX photographer with automated profile creation"
+                          >
+                            <Camera className="h-3.5 w-3.5 text-purple-700" />
+                            <span>Upgrade to Photographer</span>
+                          </button>
+                        )}
+
+                        {!isVerified && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleModifyUser(u.id, { verify_email: true })
+                            }
+                            className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                          >
+                            <MailCheck className="h-3.5 w-3.5" />
+                            <span>Verify Email</span>
+                          </button>
+                        )}
+
+                        {u.status === 'active' ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleModifyUser(u.id, { status: 'suspended' })
+                            }
+                            className="rounded-full border border-red-200 bg-red-50 px-3.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
+                          >
+                            Suspend Account
+                          </button>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-3 py-0.5 text-[10px] font-black uppercase text-amber-900">
-                            <Clock className="h-3 w-3" />
-                            <span>Awaiting Email Confirmation</span>
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleModifyUser(u.id, { status: 'active' })
+                            }
+                            className="rounded-full bg-zinc-950 px-3.5 py-1.5 text-xs font-black text-white hover:bg-zinc-800 transition-colors"
+                          >
+                            Reactivate Account
+                          </button>
                         )}
                       </div>
-                      <p className="text-xs font-medium text-zinc-600">
-                        {u.email} • {u.phone} • Joined {new Date(u.created_at).toLocaleString()}
-                      </p>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      {!isVerified && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleModifyUser(u.id, { verify_email: true })
-                          }
-                          className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
-                        >
-                          Verify Email Now
-                        </button>
-                      )}
-                      {u.status === 'active' ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleModifyUser(u.id, { status: 'suspended' })
-                          }
-                          className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-100"
-                        >
-                          Suspend Account
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleModifyUser(u.id, { status: 'active' })
-                          }
-                          className="rounded-full bg-zinc-950 px-4 py-2 text-xs font-black text-white"
-                        >
-                          Reactivate Account
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         )}
@@ -1261,7 +1411,19 @@ export default function AdminExecutiveDashboardPage() {
         )}
       </main>
 
-      <AppFooter />
+      {/* Executive SaaS Footer */}
+      <footer className="border-t border-zinc-200 bg-white py-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500">
+          <div className="flex items-center gap-2 font-bold text-zinc-700">
+            <span>ICX Studios Executive Console</span>
+            <span>•</span>
+            <span className="text-zinc-400">Restricted Corporate Gateway</span>
+            <span>•</span>
+            <span>Lagos &amp; Abuja</span>
+          </div>
+          <div className="text-[11px] font-medium text-zinc-400">Strict Confidentiality • LearnArk Technology Limited</div>
+        </div>
+      </footer>
     </div>
   );
 }
