@@ -1055,3 +1055,93 @@ authRouter.get(
   }
 );
 
+// ============================================================================
+// PATCH /api/v1/auth/profile (Update Name & Phone)
+// ============================================================================
+authRouter.patch(
+  '/profile',
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const { full_name, phone } = req.body as { full_name?: string; phone?: string };
+    const updated = await query<UserRecord>(
+      `UPDATE users
+       SET full_name = COALESCE($1, full_name),
+           phone = COALESCE($2, phone),
+           updated_at = NOW()
+       WHERE id = $3
+       RETURNING id, email, role, phone, full_name, two_factor_enabled, status, email_verified_at, created_at, updated_at`,
+      [full_name?.trim() || null, phone?.trim() || null, req.user!.sub]
+    );
+
+    const user = updated.rows[0];
+    if (!user) {
+      res.status(404).json({ error: 'USER_NOT_FOUND' });
+      return;
+    }
+
+    res.status(200).json({ user });
+  }
+);
+
+// ============================================================================
+// POST /api/v1/auth/change-password (Change Account Password)
+// ============================================================================
+authRouter.post(
+  '/change-password',
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const { current_password, new_password } = req.body as {
+      current_password?: string;
+      new_password?: string;
+    };
+
+    if (!current_password || !new_password || new_password.length < 8) {
+      res.status(400).json({
+        error: 'INVALID_INPUT',
+        message: 'Current password and a new password of at least 8 characters are required.',
+      });
+      return;
+    }
+
+    const userRes = await query<{ password_hash: string }>(
+      'SELECT password_hash FROM users WHERE id = $1 LIMIT 1',
+      [req.user!.sub]
+    );
+    const user = userRes.rows[0];
+    if (!user) {
+      res.status(404).json({ error: 'USER_NOT_FOUND' });
+      return;
+    }
+
+    const valid = await argon2.verify(user.password_hash, current_password);
+    if (!valid) {
+      res.status(400).json({
+        error: 'INCORRECT_PASSWORD',
+        message: 'The current password you entered is incorrect.',
+      });
+      return;
+    }
+
+    const newHash = await argon2.hash(new_password, {
+      type: argon2.argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 4,
+    });
+
+    await query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [
+      newHash,
+      req.user!.sub,
+    ]);
+
+    await recordAuditEvent({
+      actorId: req.user!.sub,
+      action: 'PASSWORD_CHANGED',
+      targetEntity: 'users',
+      targetId: req.user!.sub,
+    });
+
+    res.status(200).json({ status: 'password_changed', message: 'Password updated successfully.' });
+  }
+);
+

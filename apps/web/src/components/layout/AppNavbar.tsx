@@ -29,6 +29,7 @@ export function AppNavbar() {
   const router = useRouter();
   const [user, setUser] = useState<StoredUser | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [impersonating, setImpersonating] = useState(false);
 
   useEffect(() => {
     const raw = window.localStorage.getItem('icx_user');
@@ -39,7 +40,23 @@ export function AppNavbar() {
         setUser(null);
       }
     }
+    const impToken = window.localStorage.getItem('icx_impersonator_token');
+    setImpersonating(Boolean(impToken));
   }, [pathname]);
+
+  function handleExitImpersonation() {
+    const adminToken = window.localStorage.getItem('icx_impersonator_token');
+    const adminUserRaw = window.localStorage.getItem('icx_impersonator_user');
+    if (adminToken) {
+      window.localStorage.setItem('icx_token', adminToken);
+      if (adminUserRaw) {
+        window.localStorage.setItem('icx_user', adminUserRaw);
+      }
+      window.localStorage.removeItem('icx_impersonator_token');
+      window.localStorage.removeItem('icx_impersonator_user');
+      window.location.href = '/admin';
+    }
+  }
 
   async function handleLogout() {
     try {
@@ -52,26 +69,54 @@ export function AppNavbar() {
     router.push('/auth/login');
   }
 
-  const navLinks = [
-    { href: '/', label: 'Home', icon: Home },
-    { href: '/editing', label: 'Photo Editing', icon: Sliders },
-    { href: '/photographers', label: 'Photographers', icon: Camera },
-    { href: '/rentals', label: 'Rent Equipment', icon: PackageCheck },
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  ];
+  let navLinks: Array<{ href: string; label: string; icon: any }> = [];
 
-  if (user?.role === 'photographer' || user?.role === 'admin') {
-    navLinks.push({ href: '/portal/photographer', label: 'Photographer Portal', icon: Camera });
-  }
-  if (user?.role === 'editor' || user?.role === 'admin') {
-    navLinks.push({ href: '/workspace/editor', label: 'Editor Queue', icon: Sliders });
-  }
-  if (user?.role === 'admin') {
-    navLinks.push({ href: '/admin', label: 'Admin', icon: Shield });
+  if (user?.role === 'photographer') {
+    navLinks = [
+      { href: '/portal/photographer', label: 'Studio Workspace', icon: Camera },
+      { href: '/editing', label: 'Photo Editing', icon: Sliders },
+      { href: '/rentals', label: 'Rent Gear', icon: PackageCheck },
+    ];
+  } else if (user?.role === 'editor') {
+    navLinks = [
+      { href: '/workspace/editor', label: 'Retouching Queue', icon: Sliders },
+      { href: '/rentals', label: 'Rent Equipment', icon: PackageCheck },
+    ];
+  } else if (user?.role === 'admin') {
+    navLinks = [
+      { href: '/admin', label: 'Executive Console', icon: Shield },
+      { href: '/portal/photographer', label: 'Photographer Portal', icon: Camera },
+      { href: '/workspace/editor', label: 'Editor Queue', icon: Sliders },
+      { href: '/rentals', label: 'Equipment Inventory', icon: PackageCheck },
+    ];
+  } else {
+    navLinks = [
+      { href: '/', label: 'Home', icon: Home },
+      { href: '/editing', label: 'Photo Editing', icon: Sliders },
+      { href: '/photographers', label: 'Photographers', icon: Camera },
+      { href: '/rentals', label: 'Rent Equipment', icon: PackageCheck },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    ];
   }
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950 text-white">
+      {impersonating && (
+        <div className="bg-amber-400 text-zinc-950 px-4 py-2 text-xs font-black flex flex-wrap items-center justify-between gap-2 border-b border-amber-500">
+          <div className="flex items-center gap-2">
+            <span>
+              Impersonation Active: Viewing workspace as <strong>{user?.full_name}</strong> ({user?.role})
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleExitImpersonation}
+            className="rounded-lg bg-zinc-950 text-white px-3 py-1 text-xs font-black hover:bg-zinc-800 transition shadow-xs"
+          >
+            Exit Impersonation → Admin Console
+          </button>
+        </div>
+      )}
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
         <Link
           href="/"

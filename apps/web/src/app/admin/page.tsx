@@ -24,6 +24,9 @@ import {
   UploadCloud,
   ImagePlus,
   Trash2,
+  Eye,
+  LogIn,
+  X,
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import { IcxLogo } from '@/components/brand/IcxLogo';
@@ -99,6 +102,9 @@ export default function AdminExecutiveDashboardPage() {
   const [postingEquip, setPostingEquip] = useState(false);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inspectingUser, setInspectingUser] = useState<any | null>(null);
+  const [inspectingLoading, setInspectingLoading] = useState(false);
+  const [inspectingDetails, setInspectingDetails] = useState<any | null>(null);
 
   useEffect(() => {
     try {
@@ -358,6 +364,56 @@ export default function AdminExecutiveDashboardPage() {
     a.href = url;
     a.download = filename;
     a.click();
+  }
+
+  async function handleOpenUserDetails(u: any) {
+    setInspectingUser(u);
+    setInspectingLoading(true);
+    setInspectingDetails(null);
+    try {
+      const data = await apiFetch<any>(`/admin/users/${u.id}/details`);
+      setInspectingDetails(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to retrieve user details.');
+    } finally {
+      setInspectingLoading(false);
+    }
+  }
+
+  async function handleImpersonateUser(targetUser: any) {
+    const ok = window.confirm(
+      `Sign in to workspace as ${targetUser.full_name} (${targetUser.email})?\n\nYou will experience the platform directly with this account's permissions. You can return to the Executive Console at any time via the top banner.`
+    );
+    if (!ok) return;
+
+    try {
+      const currentToken = getStoredAccessToken();
+      const currentUserRaw = window.localStorage.getItem('icx_user');
+
+      const res = await apiFetch<{ user: any; accessToken: string }>(
+        `/admin/users/${targetUser.id}/impersonate`,
+        { method: 'POST' }
+      );
+
+      if (currentToken) {
+        window.localStorage.setItem('icx_impersonator_token', currentToken);
+      }
+      if (currentUserRaw) {
+        window.localStorage.setItem('icx_impersonator_user', currentUserRaw);
+      }
+
+      setStoredSession(res.accessToken, res.user);
+
+      if (res.user.role === 'photographer') {
+        window.location.href = '/portal/photographer';
+      } else if (res.user.role === 'editor') {
+        window.location.href = '/workspace/editor';
+      } else {
+        window.location.href = '/dashboard';
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to impersonate user.');
+    }
   }
 
   const confirmedUsersCount = users.filter((u) => Boolean(u.email_verified_at)).length;
@@ -707,6 +763,28 @@ export default function AdminExecutiveDashboardPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        {/* Inspect User Account Details */}
+                        <button
+                          type="button"
+                          onClick={() => void handleOpenUserDetails(u)}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-zinc-300 bg-white hover:bg-zinc-100 px-3 py-1.5 text-xs font-bold text-zinc-800 transition-colors shadow-xs"
+                          title="Inspect full account profile, orders, bookings, and ledger"
+                        >
+                          <Eye className="h-3.5 w-3.5 text-zinc-600" />
+                          <span>View Details</span>
+                        </button>
+
+                        {/* Sign in directly as this user */}
+                        <button
+                          type="button"
+                          onClick={() => void handleImpersonateUser(u)}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-zinc-900 bg-zinc-950 hover:bg-zinc-800 px-3 py-1.5 text-xs font-bold text-white transition-colors shadow-xs"
+                          title="Sign in and impersonate this account to inspect portal exactly as the user"
+                        >
+                          <LogIn className="h-3.5 w-3.5 text-emerald-400" />
+                          <span>Login As User</span>
+                        </button>
+
                         {/* 1-Click Upgrade to Photographer for Clients */}
                         {isCustomer && (
                           <button
@@ -714,11 +792,11 @@ export default function AdminExecutiveDashboardPage() {
                             onClick={() =>
                               void handleModifyUser(u.id, { role: 'photographer' })
                             }
-                            className="inline-flex items-center gap-1.5 rounded-full border border-purple-300 bg-purple-50 px-3.5 py-1.5 text-xs font-black text-purple-900 hover:bg-purple-100 transition-colors shadow-xs"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-black text-purple-900 hover:bg-purple-100 transition-colors shadow-xs"
                             title="Upgrade this client account into a certified ICX photographer with automated profile creation"
                           >
                             <Camera className="h-3.5 w-3.5 text-purple-700" />
-                            <span>Upgrade to Photographer</span>
+                            <span>Upgrade</span>
                           </button>
                         )}
 
@@ -728,7 +806,7 @@ export default function AdminExecutiveDashboardPage() {
                             onClick={() =>
                               void handleModifyUser(u.id, { verify_email: true })
                             }
-                            className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                            className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700 transition-colors shadow-xs"
                           >
                             <MailCheck className="h-3.5 w-3.5" />
                             <span>Verify Email</span>
@@ -741,9 +819,9 @@ export default function AdminExecutiveDashboardPage() {
                             onClick={() =>
                               void handleModifyUser(u.id, { status: 'suspended' })
                             }
-                            className="rounded-full border border-red-200 bg-red-50 px-3.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
+                            className="rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
                           >
-                            Suspend Account
+                            Suspend
                           </button>
                         ) : (
                           <button
@@ -751,9 +829,9 @@ export default function AdminExecutiveDashboardPage() {
                             onClick={() =>
                               void handleModifyUser(u.id, { status: 'active' })
                             }
-                            className="rounded-full bg-zinc-950 px-3.5 py-1.5 text-xs font-black text-white hover:bg-zinc-800 transition-colors"
+                            className="rounded-full bg-zinc-950 px-3 py-1.5 text-xs font-black text-white hover:bg-zinc-800 transition-colors"
                           >
-                            Reactivate Account
+                            Reactivate
                           </button>
                         )}
                       </div>
@@ -761,6 +839,170 @@ export default function AdminExecutiveDashboardPage() {
                   );
                 })
               )}
+            </div>
+          </div>
+        )}
+
+        {/* USER DETAILS INSPECTION MODAL */}
+        {inspectingUser && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="relative w-full max-w-3xl rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-zinc-200 space-y-6 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-4 border-b border-zinc-200 pb-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-black text-zinc-950">{inspectingUser.full_name}</h2>
+                    <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
+                      {inspectingUser.role}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                      inspectingUser.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {inspectingUser.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500 font-mono">{inspectingUser.email} • ID: {inspectingUser.id}</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleImpersonateUser(inspectingUser)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 px-3.5 py-2 text-xs font-bold text-white transition shadow-xs"
+                  >
+                    <LogIn className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Sign In As User</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInspectingUser(null)}
+                    className="rounded-xl border border-zinc-200 hover:bg-zinc-100 p-2 text-zinc-600 transition"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {inspectingLoading ? (
+                <div className="py-16 text-center">
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-zinc-900 border-r-transparent" />
+                  <p className="mt-3 text-xs font-semibold text-zinc-600">Loading user history and activity...</p>
+                </div>
+              ) : inspectingDetails ? (
+                <div className="space-y-6 text-xs text-zinc-800">
+                  {/* Metadata Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-2xl bg-zinc-50 p-4 border border-zinc-200">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-zinc-400">Phone</span>
+                      <p className="font-semibold text-zinc-950">{inspectingDetails.user?.phone || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-zinc-400">Email Verification</span>
+                      <p className="font-semibold text-zinc-950">
+                        {inspectingDetails.user?.email_verified_at
+                          ? new Date(inspectingDetails.user.email_verified_at).toLocaleDateString()
+                          : 'Unverified'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-zinc-400">2FA Security</span>
+                      <p className="font-semibold text-zinc-950">
+                        {inspectingDetails.user?.two_factor_enabled ? 'Active' : 'Disabled'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-zinc-400">Member Since</span>
+                      <p className="font-semibold text-zinc-950">
+                        {new Date(inspectingDetails.user?.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Photo Retouching Orders */}
+                  <div>
+                    <h3 className="text-sm font-black text-zinc-950 mb-2">
+                      Photo Retouching Orders ({inspectingDetails.orders?.length || 0})
+                    </h3>
+                    {inspectingDetails.orders?.length === 0 ? (
+                      <p className="text-zinc-500 italic">No retouching orders created.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {inspectingDetails.orders.map((o: any) => (
+                          <div key={o.id} className="flex items-center justify-between rounded-xl border border-zinc-200 p-2.5 bg-white">
+                            <div>
+                              <span className="font-mono font-bold text-zinc-950">#{o.id.slice(0, 8)}</span>
+                              <span className="text-zinc-500 ml-2">{o.photo_count} photos • {formatNaira(Number(o.total_price))}</span>
+                            </div>
+                            <span className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-700">
+                              {o.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Shoot Bookings */}
+                  <div>
+                    <h3 className="text-sm font-black text-zinc-950 mb-2">
+                      Photographer Shoot Bookings ({inspectingDetails.bookings?.length || 0})
+                    </h3>
+                    {inspectingDetails.bookings?.length === 0 ? (
+                      <p className="text-zinc-500 italic">No photographer bookings.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {inspectingDetails.bookings.map((b: any) => (
+                          <div key={b.id} className="flex items-center justify-between rounded-xl border border-zinc-200 p-2.5 bg-white">
+                            <div>
+                              <span className="font-bold text-zinc-950">{b.service_title}</span>
+                              <span className="text-zinc-500 ml-2">{formatNaira(Number(b.price))}</span>
+                            </div>
+                            <span className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-700">
+                              {b.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Equipment Rentals */}
+                  <div>
+                    <h3 className="text-sm font-black text-zinc-950 mb-2">
+                      Cinema Equipment Rentals ({inspectingDetails.rentals?.length || 0})
+                    </h3>
+                    {inspectingDetails.rentals?.length === 0 ? (
+                      <p className="text-zinc-500 italic">No gear rentals recorded.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {inspectingDetails.rentals.map((r: any) => (
+                          <div key={r.id} className="flex items-center justify-between rounded-xl border border-zinc-200 p-2.5 bg-white">
+                            <div>
+                              <span className="font-bold text-zinc-950">{r.item_name}</span>
+                              <span className="text-zinc-500 ml-2">
+                                {new Date(r.start_date).toLocaleDateString()} – {new Date(r.end_date).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <span className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-700">
+                              {r.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Photographer Profile if applicable */}
+                  {inspectingDetails.photographerProfile && (
+                    <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-4">
+                      <h3 className="text-sm font-black text-purple-950 mb-1">Photographer Roster Record</h3>
+                      <p className="text-xs text-purple-800">{inspectingDetails.photographerProfile.bio || 'No bio provided'}</p>
+                      <p className="text-[11px] text-purple-700 mt-1 font-semibold">
+                        Location: {inspectingDetails.photographerProfile.location || 'Lagos'} • Approval: {inspectingDetails.photographerProfile.approval_status}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         )}

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { query, withTransaction, recordAuditEvent } from '@icx/database';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { issueTokenPair } from '../lib/jwt.js';
 import {
   dispatchNotification,
   buildStudioEmailTemplate,
@@ -590,6 +591,101 @@ adminRouter.patch('/users/:userId', async (req: Request, res: Response): Promise
   });
 
   res.status(200).json({ user: targetUser });
+});
+
+adminRouter.get('/users/:userId/details', async (req: Request, res: Response): Promise<void> => {
+  const userId = String(req.params.userId || '');
+  const userRes = await query(
+    `SELECT id, email, role, phone, full_name, two_factor_enabled, status, email_verified_at, created_at, updated_at
+     FROM users WHERE id = $1 LIMIT 1`,
+    [userId]
+  );
+  const targetUser = userRes.rows[0];
+  if (!targetUser) {
+    res.status(404).json({ error: 'USER_NOT_FOUND', message: 'User does not exist.' });
+    return;
+  }
+
+  const [ordersRes, bookingsRes, rentalsRes, photogRes, paymentsRes] = await Promise.all([
+    query(
+      `SELECT id, status, photo_count, total_price, deposit_paid, full_paid, created_at
+       FROM edit_orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 25`,
+      [userId]
+    ),
+    query(
+      `SELECT b.id, b.service_title, b.price, b.status, s.start_time, s.end_time, b.created_at
+       FROM bookings b
+       LEFT JOIN availability_slots s ON s.id = b.slot_id
+       LEFT JOIN photographer_profiles pp ON pp.id = b.photographer_id
+       WHERE b.customer_id = $1 OR pp.user_id = $1
+       ORDER BY b.created_at DESC LIMIT 25`,
+      [userId]
+    ),
+    query(
+      `SELECT r.id, r.start_date, r.end_date, r.status, r.total_price, ei.name as item_name
+       FROM rentals r
+       JOIN equipment_items ei ON ei.id = r.item_id
+       WHERE r.customer_id = $1 ORDER BY r.start_date DESC LIMIT 25`,
+      [userId]
+    ),
+    query(
+      `SELECT * FROM photographer_profiles WHERE user_id = $1 LIMIT 1`,
+      [userId]
+    ),
+    query(
+      `SELECT id, amount, gateway, status, transaction_ref, target_type, created_at
+       FROM payments WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 25`,
+      [userId]
+    ),
+  ]);
+
+  res.status(200).json({
+    user: targetUser,
+    orders: ordersRes.rows,
+    bookings: bookingsRes.rows,
+    rentals: rentalsRes.rows,
+    photographerProfile: photogRes.rows[0] || null,
+    payments: paymentsRes.rows,
+  });
+});
+
+adminRouter.post('/users/:userId/impersonate', async (req: Request, res: Response): Promise<void> => {
+  const userId = String(req.params.userId || '');
+  const userRes = await query<{
+    id: string;
+    email: string;
+    role: any;
+    full_name: string;
+    status: string;
+    email_verified_at: Date | null;
+  }>(
+    `SELECT id, email, role, full_name, status, email_verified_at FROM users WHERE id = $1 LIMIT 1`,
+    [userId]
+  );
+  const targetUser = userRes.rows[0];
+  if (!targetUser) {
+    res.status(404).json({ error: 'USER_NOT_FOUND', message: 'Target user does not exist.' });
+    return;
+  }
+
+  await recordAuditEvent({
+    actorId: req.user!.sub,
+    action: 'ADMIN_IMPERSONATED_USER',
+    targetEntity: 'users',
+    targetId: targetUser.id,
+    details: {
+      adminEmail: req.user!.email,
+      targetEmail: targetUser.email,
+      targetRole: targetUser.role,
+    },
+  });
+
+  const { accessToken } = await issueTokenPair(targetUser);
+
+  res.status(200).json({
+    user: targetUser,
+    accessToken,
+  });
 });
 
 adminRouter.get('/bookings', async (_req: Request, res: Response): Promise<void> => {

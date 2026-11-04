@@ -4,367 +4,564 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  Shield,
+  KeyRound,
+  User,
   Mail,
+  Phone,
   CheckCircle2,
   AlertCircle,
+  Eye,
+  EyeOff,
+  Lock,
   ArrowRight,
-  RefreshCw,
+  ExternalLink,
+  QrCode,
+  LogOut,
 } from 'lucide-react';
 import { AppNavbar } from '@/components/layout/AppNavbar';
 import { AppFooter } from '@/components/layout/AppFooter';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, clearStoredSession, setStoredSession, ApiError } from '@/lib/api';
 
 interface UserProfile {
   id: string;
   email: string;
   full_name: string;
+  phone: string | null;
   role: 'customer' | 'photographer' | 'editor' | 'admin';
+  two_factor_enabled: boolean;
   email_verified_at: string | null;
+  created_at: string;
 }
 
-function getWorkspacePath(role?: string): string {
-  if (role === 'admin') return '/admin';
-  if (role === 'photographer') return '/portal/photographer';
-  if (role === 'editor') return '/workspace/editor';
-  return '/dashboard';
-}
-
-export default function AccountSecurityPage() {
+export default function AccountProfileAndSecurityPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [verifyingLink, setVerifyingLink] = useState(false);
-  const [verifiedSuccess, setVerifiedSuccess] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const syncStoredUser = useCallback((profile: UserProfile) => {
-    setUser(profile);
-    if (profile.email_verified_at) {
-      setVerifiedSuccess(true);
-    }
-    try {
-      const existingRaw = window.localStorage.getItem('icx_user');
-      if (existingRaw) {
-        const parsed = JSON.parse(existingRaw);
-        window.localStorage.setItem(
-          'icx_user',
-          JSON.stringify({ ...parsed, ...profile })
-        );
-      }
-    } catch {
-      // Ignore storage error
-    }
-  }, []);
+  // Notifications
+  const [statusBanner, setStatusBanner] = useState<string | null>(null);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
-  const checkProfileStatus = useCallback(async () => {
+  // Profile Form
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Password Change Form
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  // 2FA Setup
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [twoFactorSecret, setTwoFactorSecret] = useState<string | null>(null);
+  const [twoFactorUri, setTwoFactorUri] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState('');
+  const [verifying2FA, setVerifying2FA] = useState(false);
+
+  const loadUserData = useCallback(async () => {
     try {
       const res = await apiFetch<{ user: UserProfile }>('/auth/me');
-      syncStoredUser(res.user);
-      return res.user;
+      setUser(res.user);
+      setFullName(res.user.full_name || '');
+      setPhone(res.user.phone || '');
+
+      // Sync to local storage
+      const token = window.localStorage.getItem('icx_token');
+      if (token) {
+        setStoredSession(token, res.user);
+      }
     } catch {
-      return null;
+      router.push('/auth/login');
     } finally {
       setLoading(false);
     }
-  }, [syncStoredUser]);
+  }, [router]);
 
-  // 1. Initial load + automatic ?verify=<token> verification
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const verifiedParam = params.get('verified');
     const verifyToken = params.get('verify');
-    const emailParam = params.get('email');
 
-    if (emailParam && !user) {
-      setUser((prev) =>
-        prev
-          ? prev
-          : {
-              id: '',
-              email: emailParam,
-              full_name: 'Studio Account',
-              role: 'customer',
-              email_verified_at: null,
-            }
-      );
+    if (verifiedParam === '1') {
+      setStatusBanner('Your email address has been verified successfully.');
     }
 
     if (verifyToken) {
-      setVerifyingLink(true);
-      void (async () => {
-        try {
-          const res = await apiFetch<{ status: string; user?: UserProfile }>(
-            '/auth/verify-email',
-            {
-              method: 'POST',
-              body: JSON.stringify({ token: verifyToken }),
-            }
-          );
-          setVerifiedSuccess(true);
-          if (res.user) {
-            syncStoredUser(res.user);
-          }
-          try {
-            const bc = new BroadcastChannel('icx_email_verification');
-            bc.postMessage({ type: 'EMAIL_VERIFIED', user: res.user });
-            bc.close();
-          } catch {
-            // BroadcastChannel not supported in older environments
-          }
-          await checkProfileStatus();
-        } catch (err) {
-          const current = await checkProfileStatus();
-          if (!current?.email_verified_at) {
-            setError(
-              err instanceof Error
-                ? err.message
-                : 'This confirmation link has expired or has already been used.'
-            );
-          }
-        } finally {
-          setVerifyingLink(false);
-        }
-      })();
-    } else {
-      void checkProfileStatus();
-    }
-  }, [checkProfileStatus, syncStoredUser]);
-
-  // 2. Real-time Cross-Device & Cross-Tab Automatic Verification Detection (No Refresh Needed)
-  useEffect(() => {
-    if (verifiedSuccess || user?.email_verified_at) {
-      return;
+      apiFetch<{ status: string }>('/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify({ token: verifyToken }),
+      })
+        .then(() => {
+          setStatusBanner('Your email address has been confirmed and verified.');
+          void loadUserData();
+        })
+        .catch((err) => {
+          setErrorBanner(err instanceof ApiError ? err.message : 'Invalid or expired verification token.');
+        });
     }
 
-    const checkVerification = async () => {
-      try {
-        const res = await apiFetch<{ user: UserProfile }>('/auth/me');
-        if (res.user.email_verified_at) {
-          syncStoredUser(res.user);
-          return;
-        }
-      } catch {
-        // Fallback to checking public verification status by email or ID
-        const targetEmail =
-          user?.email ||
-          (typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.search).get('email')
-            : null);
-        if (targetEmail) {
-          try {
-            const statusRes = await apiFetch<{
-              verified: boolean;
-              email_verified_at: string | null;
-              user?: UserProfile;
-            }>(`/auth/verification-status?email=${encodeURIComponent(targetEmail)}`);
-            if (statusRes.verified && statusRes.user) {
-              syncStoredUser(statusRes.user);
-            }
-          } catch {
-            // Ignore polling errors
-          }
-        }
-      }
-    };
+    void loadUserData();
+  }, [loadUserData]);
 
-    // Poll every 2 seconds
-    const interval = window.setInterval(checkVerification, 2000);
+  async function handleSaveProfile(e: React.FormEvent) {
+    e.preventDefault();
+    setStatusBanner(null);
+    setErrorBanner(null);
+    setSavingProfile(true);
 
-    // Also listen for same-device BroadcastChannel or window focus
-    let bc: BroadcastChannel | null = null;
     try {
-      bc = new BroadcastChannel('icx_email_verification');
-      bc.onmessage = (event) => {
-        if (event.data?.type === 'EMAIL_VERIFIED') {
-          void checkProfileStatus();
-        }
-      };
-    } catch {
-      bc = null;
-    }
-
-    const handleFocus = () => {
-      void checkVerification();
-    };
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      if (bc) bc.close();
-    };
-  }, [verifiedSuccess, user?.email_verified_at, user?.email, checkProfileStatus, syncStoredUser]);
-
-  // 3. Auto-redirect to workspace 2.5 seconds after confirmation if user is signed in
-  useEffect(() => {
-    if (!verifiedSuccess || !user) return;
-    const timer = window.setTimeout(() => {
-      router.push(getWorkspacePath(user.role));
-    }, 2500);
-    return () => window.clearTimeout(timer);
-  }, [verifiedSuccess, user, router]);
-
-  async function handleResendEmail() {
-    setError(null);
-    setNotice(null);
-    setResending(true);
-    try {
-      await apiFetch('/auth/resend-verification', { method: 'POST' });
-      setNotice(`We sent a new confirmation link to ${user?.email || 'your email'}.`);
+      const res = await apiFetch<{ user: UserProfile }>('/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          full_name: fullName.trim(),
+          phone: phone.trim(),
+        }),
+      });
+      setUser(res.user);
+      setStatusBanner('Account profile updated successfully.');
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not resend the confirmation email. Please try again.'
-      );
+      setErrorBanner(err instanceof ApiError ? err.message : 'Failed to update profile.');
     } finally {
-      setResending(false);
+      setSavingProfile(false);
     }
   }
 
-  const isConfirmed = verifiedSuccess || Boolean(user?.email_verified_at);
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setStatusBanner(null);
+    setErrorBanner(null);
+
+    if (newPassword.length < 8) {
+      setErrorBanner('New password must be at least 8 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorBanner('New passwords do not match. Please verify and retype.');
+      return;
+    }
+
+    setChangingPassword(true);
+
+    try {
+      await apiFetch('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      });
+
+      setStatusBanner('Your password has been changed successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      setErrorBanner(err instanceof ApiError ? err.message : 'Failed to change password.');
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
+  async function handleStart2FASetup() {
+    setErrorBanner(null);
+    try {
+      const res = await apiFetch<{ secret: string; otpauthUri: string }>('/auth/2fa/setup', {
+        method: 'POST',
+      });
+      setTwoFactorSecret(res.secret);
+      setTwoFactorUri(res.otpauthUri);
+      setShow2FASetup(true);
+    } catch (err) {
+      setErrorBanner(err instanceof ApiError ? err.message : 'Failed to initialize 2FA setup.');
+    }
+  }
+
+  async function handleVerify2FA(e: React.FormEvent) {
+    e.preventDefault();
+    setErrorBanner(null);
+    setVerifying2FA(true);
+
+    try {
+      await apiFetch('/auth/2fa/enable', {
+        method: 'POST',
+        body: JSON.stringify({ totp_code: totpCode.trim() }),
+      });
+      setStatusBanner('Two-Factor Authentication (2FA) is now enabled for your account.');
+      setShow2FASetup(false);
+      setTotpCode('');
+      await loadUserData();
+    } catch (err) {
+      setErrorBanner(err instanceof ApiError ? err.message : 'Invalid authenticator code.');
+    } finally {
+      setVerifying2FA(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    setErrorBanner(null);
+    try {
+      await apiFetch('/auth/resend-verification', { method: 'POST' });
+      setStatusBanner(`A verification link has been sent to ${user?.email}.`);
+    } catch (err) {
+      setErrorBanner(err instanceof ApiError ? err.message : 'Failed to resend confirmation email.');
+    }
+  }
+
+  function handleLogout() {
+    clearStoredSession();
+    router.push('/auth/login');
+  }
+
+  const roleTitle =
+    user?.role === 'photographer'
+      ? 'Studio Photographer'
+      : user?.role === 'editor'
+      ? 'Senior Retoucher & Editor'
+      : user?.role === 'admin'
+      ? 'Executive Administrator'
+      : 'Studio Client';
+
+  const portalHref =
+    user?.role === 'photographer'
+      ? '/portal/photographer'
+      : user?.role === 'editor'
+      ? '/workspace/editor'
+      : user?.role === 'admin'
+      ? '/admin'
+      : '/dashboard';
+
+  const portalLabel =
+    user?.role === 'photographer'
+      ? 'Go to Photographer Workspace'
+      : user?.role === 'editor'
+      ? 'Go to Retouching Queue'
+      : user?.role === 'admin'
+      ? 'Go to Admin Console'
+      : 'Go to Client Dashboard';
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-950">
       <AppNavbar />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md">
-          <div className="rounded-3xl border border-zinc-200 bg-white p-8 sm:p-10 shadow-sm text-center space-y-6">
-            {verifyingLink || (loading && !user && !verifiedSuccess && !error) ? (
-              <div className="py-8 space-y-4">
-                <RefreshCw className="mx-auto h-10 w-10 text-zinc-950 animate-spin" />
-                <h1 className="text-xl font-black text-zinc-950">
-                  Confirming your email...
-                </h1>
-                <p className="text-xs sm:text-sm text-zinc-600">
-                  Please wait a moment while we verify your account.
-                </p>
-              </div>
-            ) : isConfirmed ? (
-              <div className="space-y-6">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                  <CheckCircle2 className="h-9 w-9" />
+      <main className="flex-1 py-10 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-4xl space-y-8">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-200 pb-6">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 tracking-tight">
+                Account Profile &amp; Settings
+              </h1>
+              <p className="mt-1 text-xs sm:text-sm text-zinc-600">
+                Manage your personal information, credentials, and two-factor authentication.
+              </p>
+            </div>
+
+            <Link
+              href={portalHref}
+              className="inline-flex items-center gap-2 rounded-xl bg-zinc-950 px-4 py-2.5 text-xs font-bold text-white hover:bg-zinc-800 transition"
+            >
+              <span>{portalLabel}</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          {/* Feedback Banners */}
+          {statusBanner && (
+            <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-900 shadow-xs">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+              <span>{statusBanner}</span>
+            </div>
+          )}
+
+          {errorBanner && (
+            <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-900 shadow-xs">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+              <span>{errorBanner}</span>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="py-20 text-center">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-zinc-900 border-r-transparent" />
+              <p className="mt-4 text-xs font-semibold text-zinc-600">Loading account details...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-8">
+              {/* SECTION 1: Personal Profile */}
+              <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm">
+                <div className="flex items-center gap-3 border-b border-zinc-100 pb-4 mb-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 text-zinc-900">
+                    <User className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-zinc-950">Profile Information</h2>
+                    <p className="text-xs text-zinc-500">Your public identity and contact details.</p>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <h1 className="text-2xl font-black tracking-tight text-zinc-950">
-                    Email confirmed
-                  </h1>
-                  <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-                    {user?.email ? (
-                      <>
-                        Your email address <strong>{user.email}</strong> is confirmed and your account is ready.
-                      </>
-                    ) : (
-                      'Your email address has been confirmed and your account is ready.'
-                    )}
-                  </p>
-                </div>
+                <form onSubmit={handleSaveProfile} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Your full name"
+                        className="w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:bg-white focus:outline-none"
+                      />
+                    </div>
 
-                {user ? (
-                  <div className="space-y-3">
-                    <Link
-                      href={getWorkspacePath(user.role)}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 px-6 py-3.5 text-sm font-black text-white hover:bg-zinc-800 transition-colors"
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                        Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="+234 800 000 0000"
+                        className="w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                        Account Email Address
+                      </label>
+                      <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-100 px-3.5 py-2.5 text-sm text-zinc-800">
+                        <span className="truncate font-medium">{user?.email}</span>
+                        {user?.email_verified_at ? (
+                          <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                            Verified
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleResendVerification}
+                            className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 hover:bg-amber-200"
+                          >
+                            Unverified (Resend)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                        Platform Role &amp; Access Tier
+                      </label>
+                      <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-100 px-3.5 py-2.5 text-sm text-zinc-800">
+                        <span className="font-bold text-zinc-900">{roleTitle}</span>
+                        <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-[10px] font-black text-white uppercase tracking-wider">
+                          {user?.role}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={savingProfile}
+                      className="rounded-xl bg-zinc-950 px-5 py-2.5 text-xs font-bold text-white hover:bg-zinc-800 disabled:opacity-50 transition"
                     >
-                      <span>Continue to Dashboard</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                    <p className="text-[11px] text-zinc-400">
-                      Taking you to your dashboard automatically...
+                      {savingProfile ? 'Saving...' : 'Save Profile Changes'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* SECTION 2: Security & Password */}
+              <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm">
+                <div className="flex items-center gap-3 border-b border-zinc-100 pb-4 mb-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 text-zinc-900">
+                    <KeyRound className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-zinc-950">Change Password</h2>
+                    <p className="text-xs text-zinc-500">Ensure your account uses a confidential, strong password.</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                      Current Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:bg-white focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                        New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          minLength={8}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Min 8 characters"
+                          className="w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:bg-white focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                        Confirm New Password
+                      </label>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        minLength={8}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Retype password"
+                        className="w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={changingPassword}
+                      className="rounded-xl bg-zinc-950 px-5 py-2.5 text-xs font-bold text-white hover:bg-zinc-800 disabled:opacity-50 transition"
+                    >
+                      {changingPassword ? 'Updating Password...' : 'Update Password'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* SECTION 3: Two-Factor Authentication (2FA) */}
+              <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm">
+                <div className="flex items-center gap-3 border-b border-zinc-100 pb-4 mb-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 text-zinc-900">
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-zinc-950">Two-Factor Authentication (2FA)</h2>
+                    <p className="text-xs text-zinc-500">Add an extra layer of security using Google Authenticator or 1Password.</p>
+                  </div>
+                </div>
+
+                {user?.two_factor_enabled ? (
+                  <div className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-emerald-950">2FA Protection Active</p>
+                        <p className="text-[11px] text-emerald-800">Your account requires a 6-digit authenticator code on each sign-in.</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : show2FASetup ? (
+                  <div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                    <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Configure Authenticator App</h3>
+                    <p className="text-xs text-zinc-600 leading-relaxed">
+                      1. Open your authenticator app (Google Authenticator, Apple Passwords, or 1Password).<br/>
+                      2. Add a new manual key using the code below:
                     </p>
+                    <div className="rounded-xl border border-zinc-300 bg-white p-3 font-mono text-sm font-bold text-zinc-950 text-center tracking-widest break-all select-all">
+                      {twoFactorSecret}
+                    </div>
+
+                    <form onSubmit={handleVerify2FA} className="pt-2 space-y-3 max-w-sm">
+                      <label className="block text-xs font-bold text-zinc-800">
+                        Enter 6-Digit Verification Code
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        maxLength={6}
+                        value={totpCode}
+                        onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="000000"
+                        className="w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-center font-mono text-lg font-bold tracking-widest text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="submit"
+                          disabled={verifying2FA || totpCode.length !== 6}
+                          className="flex-1 rounded-xl bg-zinc-950 py-2.5 text-xs font-bold text-white hover:bg-zinc-800 disabled:opacity-50 transition"
+                        >
+                          {verifying2FA ? 'Verifying...' : 'Enable 2FA'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShow2FASetup(false)}
+                          className="rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 ) : (
-                  <Link
-                    href="/auth/login"
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 px-6 py-3.5 text-sm font-black text-white hover:bg-zinc-800 transition-colors"
-                  >
-                    <span>Sign In to Your Account</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                    <div>
+                      <p className="text-xs font-bold text-zinc-950">Two-Factor Authentication is Not Enabled</p>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">Protect your bookings, payouts, and client edits from unauthorized access.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleStart2FASetup}
+                      className="rounded-xl bg-zinc-950 px-4 py-2 text-xs font-bold text-white hover:bg-zinc-800 transition"
+                    >
+                      Set Up 2FA
+                    </button>
+                  </div>
                 )}
               </div>
-            ) : user ? (
-              <div className="space-y-6">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 text-zinc-950">
-                  <Mail className="h-8 w-8" />
+
+              {/* SECTION 4: Sign Out */}
+              <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-black text-zinc-950">Sign Out of Session</h2>
+                  <p className="text-xs text-zinc-500">Sign out of your active ICX Studios session on this browser.</p>
                 </div>
-
-                <div className="space-y-2">
-                  <h1 className="text-2xl font-black tracking-tight text-zinc-950">
-                    Check your email
-                  </h1>
-                  <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
-                    We sent a confirmation link to{' '}
-                    <strong className="text-zinc-950">{user.email}</strong>. Click the link in that email to confirm your account.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-xs text-zinc-600 flex items-center justify-center gap-2">
-                  <RefreshCw className="h-3.5 w-3.5 text-zinc-500 animate-spin shrink-0" />
-                  <span>
-                    Waiting for confirmation — this page will update automatically as soon as you click the link on any device.
-                  </span>
-                </div>
-
-                {error && (
-                  <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-700 text-left">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
-
-                {notice && (
-                  <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-800 text-left">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span>{notice}</span>
-                  </div>
-                )}
-
-                <div className="space-y-3 pt-2">
-                  <button
-                    type="button"
-                    disabled={resending}
-                    onClick={handleResendEmail}
-                    className="w-full rounded-full bg-zinc-950 py-3.5 text-xs sm:text-sm font-black text-white hover:bg-zinc-800 disabled:opacity-50 transition-colors"
-                  >
-                    {resending ? 'Sending email...' : 'Resend confirmation email'}
-                  </button>
-
-                  <Link
-                    href={getWorkspacePath(user.role)}
-                    className="block w-full rounded-full border border-zinc-300 bg-white py-3 text-xs font-bold text-zinc-800 hover:border-zinc-950 transition-colors"
-                  >
-                    Go to Dashboard
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {error && (
-                  <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-700 text-left">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
-                <h1 className="text-2xl font-black text-zinc-950">
-                  Confirm your email
-                </h1>
-                <p className="text-xs sm:text-sm text-zinc-600">
-                  Sign in to your account to request a new confirmation link.
-                </p>
-                <Link
-                  href="/auth/login"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 px-6 py-3.5 text-sm font-black text-white"
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 hover:border-red-300 hover:bg-red-50 hover:text-red-700 px-4 py-2.5 text-xs font-bold text-zinc-700 transition"
                 >
-                  <span>Sign In</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                  <LogOut className="h-4 w-4" />
+                  <span>Sign Out</span>
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </main>
 

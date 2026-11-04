@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Sliders,
   Camera,
@@ -21,12 +22,34 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 export default function CustomerUnifiedDashboardPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<Array<Record<string, unknown>>>([]);
   const [bookings, setBookings] = useState<Array<Record<string, unknown>>>([]);
   const [rentals, setRentals] = useState<Array<Record<string, unknown>>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('icx_user');
+      if (raw) {
+        const u = JSON.parse(raw);
+        if (u.role === 'photographer') {
+          router.replace('/portal/photographer');
+          return;
+        }
+        if (u.role === 'editor') {
+          router.replace('/workspace/editor');
+          return;
+        }
+        if (u.role === 'admin') {
+          router.replace('/admin');
+          return;
+        }
+      }
+    } catch {
+      // Ignore
+    }
+
     Promise.all([
       apiFetch<{ orders: Array<Record<string, unknown>> }>('/editing/orders').catch(() => ({
         orders: [],
