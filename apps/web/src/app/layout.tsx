@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   title: 'ICX Studios — Commercial Retouching, Master Photographers & Cinema Gear Rental',
   description:
     'The premier creative production house in Lagos & Abuja. Bespoke editorial photo retouching, vetted master photographers, and insured RED/Sony/Profoto cinema equipment rentals.',
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    shortcut: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/apple-icon.svg', type: 'image/svg+xml' }],
+  },
 };
 
 export const viewport: Viewport = {
