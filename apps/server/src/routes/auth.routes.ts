@@ -124,12 +124,11 @@ authRouter.post(
       const verifyUrl = `${webUrl}/account/security?verify=${verificationToken}`;
 
       void dispatchNotification({
-        userId: newUser.id,
-        channel: 'email',
-        templateKey: 'NT_EMAIL_VERIFICATION',
-        recipient: newUser.email,
+        triggerId: 'NT-AUTH-VERIFY',
+        recipientEmail: newUser.email,
+        recipientUserId: newUser.id,
         subject: 'Confirm Your ICX Studios Account',
-        body: buildStudioEmailTemplate({
+        htmlBody: buildStudioEmailTemplate({
           heading: `Welcome to ICX Studios, ${newUser.full_name}.`,
           subheading: 'Confirm your email address to activate full studio privileges.',
           bodyHtml: `
@@ -141,16 +140,17 @@ authRouter.post(
           ctaUrl: verifyUrl,
           footerNote: 'This verification link expires in 24 hours.',
         }),
+        targetEntity: 'users',
+        targetId: newUser.id,
       });
 
       if (role === 'photographer') {
         void dispatchNotification({
-          userId: newUser.id,
-          channel: 'email',
-          templateKey: 'NT_06_PHOTOGRAPHER_APPLIED',
-          recipient: 'admin@icxora.com',
+          triggerId: 'NT-06',
+          recipientEmail: 'admin@icxora.com',
+          recipientUserId: newUser.id,
           subject: `New Photographer Application: ${newUser.full_name}`,
-          body: buildStudioEmailTemplate({
+          htmlBody: buildStudioEmailTemplate({
             heading: 'New Photographer Roster Application',
             subheading: `${newUser.full_name} (${newUser.email}) has applied to join the ICX Studios Photographer Directory.`,
             bodyHtml: `
@@ -162,6 +162,8 @@ authRouter.post(
             ctaLabel: 'Open Executive Admin Console',
             ctaUrl: `${webUrl}/admin`,
           }),
+          targetEntity: 'users',
+          targetId: newUser.id,
         });
       }
 
@@ -515,12 +517,11 @@ authRouter.post(
     const verifyUrl = `${webUrl}/account/security?verify=${verificationToken}`;
 
     await dispatchNotification({
-      userId: user.id,
-      channel: 'email',
-      templateKey: 'NT_EMAIL_VERIFICATION_RESEND',
-      recipient: user.email,
+      triggerId: 'NT-AUTH-VERIFY',
+      recipientEmail: user.email,
+      recipientUserId: user.id,
       subject: 'Confirm Your ICX Studios Email Address',
-      body: buildStudioEmailTemplate({
+      htmlBody: buildStudioEmailTemplate({
         heading: `Verify Your Email Address, ${user.full_name}.`,
         subheading: 'Click the button below to confirm your ICX Studios account.',
         bodyHtml: `
@@ -532,6 +533,8 @@ authRouter.post(
         ctaUrl: verifyUrl,
         footerNote: 'This verification link expires in 24 hours.',
       }),
+      targetEntity: 'users',
+      targetId: user.id,
     });
 
     res.status(200).json({
@@ -574,12 +577,11 @@ authRouter.post(
       const resetUrl = `${webUrl}/auth/reset-password?token=${resetToken}`;
 
       void dispatchNotification({
-        userId: user.id,
-        channel: 'email',
-        templateKey: 'NT_PASSWORD_RESET',
-        recipient: user.email,
+        triggerId: 'NT-AUTH-RESET',
+        recipientEmail: user.email,
+        recipientUserId: user.id,
         subject: 'Reset Your ICX Studios Password',
-        body: buildStudioEmailTemplate({
+        htmlBody: buildStudioEmailTemplate({
           heading: 'Password Reset Request',
           subheading: `We received a request to reset the password for ${user.email}.`,
           bodyHtml: `
@@ -591,6 +593,8 @@ authRouter.post(
           ctaUrl: resetUrl,
           footerNote: 'This password reset link expires in 30 minutes. If you did not request a reset, you can safely ignore this email.',
         }),
+        targetEntity: 'users',
+        targetId: user.id,
       });
 
       await recordAuditEvent({
@@ -762,12 +766,11 @@ authRouter.post(
 
     const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
     void dispatchNotification({
-      userId: created.id,
-      channel: 'email',
-      templateKey: 'NT_STAFF_INVITE',
-      recipient: created.email,
+      triggerId: 'NT-AUTH-INVITE',
+      recipientEmail: created.email,
+      recipientUserId: created.id,
       subject: `You Have Been Invited to ICX Studios (${created.role.toUpperCase()})`,
-      body: buildStudioEmailTemplate({
+      htmlBody: buildStudioEmailTemplate({
         heading: `Welcome to the ICX Studios Team, ${created.full_name}.`,
         subheading: `An administrator has provisioned your ${created.role} workspace account.`,
         bodyHtml: `
@@ -782,6 +785,8 @@ authRouter.post(
         ctaLabel: 'Sign In to Workspace',
         ctaUrl: `${webUrl}/auth/login`,
       }),
+      targetEntity: 'users',
+      targetId: created.id,
     });
 
     res.status(201).json({

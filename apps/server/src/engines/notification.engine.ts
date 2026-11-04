@@ -32,6 +32,7 @@ interface DispatchNotificationParams {
  */
 export function buildStudioEmailTemplate(options: {
   heading: string;
+  subheading?: string;
   bodyHtml: string;
   ctaLabel?: string;
   ctaUrl?: string;
@@ -70,9 +71,14 @@ export function buildStudioEmailTemplate(options: {
           </tr>
           <tr>
             <td style="padding: 32px;">
-              <h1 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 800; color: #09090B; line-height: 1.3;">
+              <h1 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 800; color: #09090B; line-height: 1.3;">
                 ${options.heading}
               </h1>
+              ${
+                options.subheading
+                  ? `<p style="margin: 0 0 20px 0; font-size: 14px; font-weight: 600; color: #52525B;">${options.subheading}</p>`
+                  : ''
+              }
               <div style="font-size: 14px; line-height: 1.65; color: #27272A;">
                 ${options.bodyHtml}
               </div>
