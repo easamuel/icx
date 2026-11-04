@@ -18,7 +18,7 @@ export async function runSeed(): Promise<void> {
     const adminRes = await client.query<{ id: string }>(
       `INSERT INTO users (email, password_hash, role, phone, full_name, status, email_verified_at)
        VALUES ('admin@icxstudios.com', $1, 'admin', '+2348010000001', 'Oluwaseun Adeyemi (Executive Director)', 'active', NOW())
-       ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
+       ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash, role = 'admin', email_verified_at = NOW(), status = 'active'
        RETURNING id`,
       [defaultPasswordHash]
     );
@@ -26,7 +26,7 @@ export async function runSeed(): Promise<void> {
     const editorRes = await client.query<{ id: string }>(
       `INSERT INTO users (email, password_hash, role, phone, full_name, status, email_verified_at)
        VALUES ('editor@icxstudios.com', $1, 'editor', '+2348010000002', 'Babajide Ogunleye (Lead Colorist)', 'active', NOW())
-       ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
+       ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash, role = 'editor', email_verified_at = NOW(), status = 'active'
        RETURNING id`,
       [defaultPasswordHash]
     );
@@ -34,7 +34,7 @@ export async function runSeed(): Promise<void> {
     await client.query<{ id: string }>(
       `INSERT INTO users (email, password_hash, role, phone, full_name, status, email_verified_at)
        VALUES ('customer@icxstudios.com', $1, 'customer', '+2348010000004', 'Chukwudi Okafor', 'active', NOW())
-       ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
+       ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash, role = 'customer', email_verified_at = NOW(), status = 'active'
        RETURNING id`,
       [defaultPasswordHash]
     );
@@ -179,7 +179,7 @@ export async function runSeed(): Promise<void> {
       const userRes = await client.query<{ id: string }>(
         `INSERT INTO users (email, password_hash, role, phone, full_name, status, email_verified_at)
          VALUES ($1, $2, 'photographer', $3, $4, 'active', NOW())
-         ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
+         ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash, role = 'photographer', email_verified_at = NOW(), status = 'active'
          RETURNING id`,
         [photog.email, defaultPasswordHash, photog.phone, photog.full_name]
       );
