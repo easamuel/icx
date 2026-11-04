@@ -1,33 +1,33 @@
 import React from 'react';
 import Link from 'next/link';
 import { IcxLogo } from '@/components/brand/IcxLogo';
-import { ShieldCheck, MapPin, Phone, Mail, ArrowUpRight } from 'lucide-react';
+import { MapPin, Phone, Mail } from 'lucide-react';
 
 export function AppFooter() {
   return (
     <footer className="border-t border-zinc-800 bg-zinc-950 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-5">
-          {/* Column 1-2: Brand & Studio Locations */}
-          <div className="lg:col-span-2 space-y-4">
+      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
+          {/* Column 1-2: Brand & Contact */}
+          <div className="md:col-span-2 space-y-4">
             <Link
               href="/"
-              aria-label="ICX Studios Home (icxora.com)"
-              className="inline-flex items-center group"
+              aria-label="ICX Studios Home"
+              className="inline-flex items-center shrink-0"
             >
-              <IcxLogo variant="light" className="transition-transform group-hover:scale-[1.01]" />
+              <IcxLogo variant="light" />
             </Link>
             <p className="max-w-sm text-xs sm:text-sm text-zinc-400 leading-relaxed">
-              West Africa’s premier creative production ecosystem. Bespoke frequency-separation photo retouching, vetted master photographers, and insured cinema equipment rentals.
+              Professional photo editing, trusted photographers, and camera &amp; lighting rentals in Lagos and Abuja.
             </p>
-            <div className="pt-2 space-y-2 text-xs text-zinc-400">
+            <div className="pt-1 space-y-2 text-xs text-zinc-400">
               <div className="flex items-center gap-2">
                 <MapPin className="h-3.5 w-3.5 text-white shrink-0" />
                 <span>Victoria Island &amp; Lekki Phase 1, Lagos • Maitama, Abuja</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-3.5 w-3.5 text-white shrink-0" />
-                <span>+234 (0) 801 000 0001 • Concierge Desk (Mon–Sat, 8am–8pm)</span>
+                <span>+234 (0) 801 000 0001 (Mon–Sat, 8am–8pm)</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-3.5 w-3.5 text-white shrink-0" />
@@ -36,100 +36,67 @@ export function AppFooter() {
             </div>
           </div>
 
-          {/* Column 3: Core Studio Services (Includes Active Home Link) */}
+          {/* Column 3: Services */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-              Studio Navigation
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+              Navigation
             </h3>
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium text-zinc-300">
               <li>
-                <Link href="/" className="font-bold text-white hover:text-zinc-200 transition-colors">
+                <Link href="/" className="hover:text-white transition-colors">
                   Home
                 </Link>
               </li>
               <li>
                 <Link href="/editing" className="hover:text-white transition-colors">
-                  Editorial Photo Retouching
+                  Photo Editing
                 </Link>
               </li>
               <li>
                 <Link href="/photographers" className="hover:text-white transition-colors">
-                  Book Vetted Photographers
+                  Photographers
                 </Link>
               </li>
               <li>
                 <Link href="/rentals" className="hover:text-white transition-colors">
-                  Cinema &amp; Lighting Gear Rental
+                  Rent Equipment
                 </Link>
               </li>
               <li>
                 <Link href="/dashboard" className="hover:text-white transition-colors">
-                  Client Project Dashboard
+                  Dashboard
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Column 4: Partner & Staff Portals */}
+          {/* Column 4: Account & Partners */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-              Partner Workspaces
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+              Account
             </h3>
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium text-zinc-300">
               <li>
+                <Link href="/auth/login" className="hover:text-white transition-colors">
+                  Sign In
+                </Link>
+              </li>
+              <li>
+                <Link href="/auth/register" className="hover:text-white transition-colors">
+                  Create Account
+                </Link>
+              </li>
+              <li>
                 <Link href="/portal/photographer" className="hover:text-white transition-colors">
-                  Photographer Studio Portal
-                </Link>
-              </li>
-              <li>
-                <Link href="/auth/register" className="hover:text-white transition-colors inline-flex items-center gap-1">
-                  <span>Apply as a Photographer</span>
-                  <ArrowUpRight className="h-3 w-3" />
-                </Link>
-              </li>
-              <li>
-                <Link href="/workspace/editor" className="hover:text-white transition-colors">
-                  Senior Retoucher Queue
-                </Link>
-              </li>
-              <li>
-                <Link href="/admin" className="hover:text-white transition-colors">
-                  Executive Control Center
+                  Photographer Portal
                 </Link>
               </li>
             </ul>
           </div>
-
-          {/* Column 5: Security & Protection */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-              Studio Guarantees
-            </h3>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-2.5 text-xs text-zinc-300">
-              <div className="flex items-center gap-2 font-bold text-white">
-                <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Escrow &amp; Proof Protection</span>
-              </div>
-              <p className="text-[11px] text-zinc-400 leading-relaxed">
-                Pay a 70% deposit to start retouching, inspect high-res proofs with our interactive comparison loupe, and settle the 30% balance only when ready to unlock uncompressed masters.
-              </p>
-            </div>
-          </div>
         </div>
 
-        <div className="mt-12 border-t border-zinc-800/80 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
+        <div className="mt-12 border-t border-zinc-800/80 pt-8 text-xs text-zinc-500">
           <p>© {new Date().getFullYear()} ICX Studios (LearnArk Technology Limited). All rights reserved.</p>
-          <div className="flex items-center gap-6">
-            <Link href="/" className="font-semibold text-zinc-300 hover:text-white">
-              Home
-            </Link>
-            <Link href="/account/security" className="hover:text-zinc-300">
-              Account Security &amp; 2FA
-            </Link>
-            <Link href="/auth/login" className="hover:text-zinc-300">
-              Staff Sign In
-            </Link>
-          </div>
         </div>
       </div>
     </footer>

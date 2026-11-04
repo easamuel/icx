@@ -8,7 +8,6 @@ import {
   Menu,
   X,
   LogOut,
-  ArrowUpRight,
   Sliders,
   Camera,
   PackageCheck,
@@ -55,35 +54,35 @@ export function AppNavbar() {
 
   const navLinks = [
     { href: '/', label: 'Home', icon: Home },
-    { href: '/editing', label: 'Photo Retouching', icon: Sliders },
-    { href: '/photographers', label: 'Book Photographers', icon: Camera },
-    { href: '/rentals', label: 'Cinema Gear Rental', icon: PackageCheck },
-    { href: '/dashboard', label: 'Client Studio', icon: LayoutDashboard },
+    { href: '/editing', label: 'Photo Editing', icon: Sliders },
+    { href: '/photographers', label: 'Photographers', icon: Camera },
+    { href: '/rentals', label: 'Rent Equipment', icon: PackageCheck },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   ];
 
   if (user?.role === 'photographer' || user?.role === 'admin') {
     navLinks.push({ href: '/portal/photographer', label: 'Photographer Portal', icon: Camera });
   }
   if (user?.role === 'editor' || user?.role === 'admin') {
-    navLinks.push({ href: '/workspace/editor', label: 'Retoucher Queue', icon: Sliders });
+    navLinks.push({ href: '/workspace/editor', label: 'Editor Queue', icon: Sliders });
   }
   if (user?.role === 'admin') {
-    navLinks.push({ href: '/admin', label: 'Executive Admin', icon: Shield });
+    navLinks.push({ href: '/admin', label: 'Admin', icon: Shield });
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950/95 text-white backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-zinc-800 bg-zinc-950 text-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
         <Link
           href="/"
-          aria-label="ICX Studios Home (icxora.com)"
-          className="flex items-center gap-3 shrink-0 group"
+          aria-label="ICX Studios Home"
+          className="inline-flex items-center shrink-0"
         >
-          <IcxLogo variant="light" className="transition-transform group-hover:scale-[1.01]" />
+          <IcxLogo variant="light" />
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-1" aria-label="Primary Navigation">
+        <nav className="hidden lg:flex items-center gap-1" aria-label="Main Navigation">
           {navLinks.map((item) => {
             const active =
               item.href === '/'
@@ -95,7 +94,7 @@ export function AppNavbar() {
                 href={item.href}
                 className={`rounded-full px-4 py-2 text-xs xl:text-sm font-semibold transition-all ${
                   active
-                    ? 'bg-white text-zinc-950 shadow-sm'
+                    ? 'bg-white text-zinc-950'
                     : 'text-zinc-300 hover:bg-zinc-900 hover:text-white'
                 }`}
               >
@@ -111,13 +110,10 @@ export function AppNavbar() {
             <div className="flex items-center gap-2.5">
               <Link
                 href="/account/security"
-                className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:border-zinc-500 transition-colors"
+                className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:border-zinc-600 transition-colors"
               >
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 <span className="max-w-[140px] truncate">{user.full_name}</span>
-                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-950">
-                  {user.role}
-                </span>
               </Link>
               <button
                 type="button"
@@ -142,14 +138,13 @@ export function AppNavbar() {
               </Link>
               <Link
                 href="/auth/register"
-                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold shadow-sm transition-all ${
+                className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold transition-all ${
                   pathname === '/auth/register'
                     ? 'bg-emerald-400 text-zinc-950'
                     : 'bg-white text-zinc-950 hover:bg-zinc-200'
                 }`}
               >
-                <span>Start a Project</span>
-                <ArrowUpRight className="h-3.5 w-3.5" />
+                Create Account
               </Link>
             </div>
           )}
@@ -159,7 +154,7 @@ export function AppNavbar() {
         <button
           type="button"
           onClick={() => setMobileMenuOpen((v) => !v)}
-          aria-label="Toggle Navigation Menu"
+          aria-label="Toggle Menu"
           className="lg:hidden rounded-xl border border-zinc-800 p-2 text-white hover:bg-zinc-900"
         >
           {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -168,7 +163,7 @@ export function AppNavbar() {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-zinc-800 bg-zinc-950 px-4 py-5 space-y-4 shadow-xl">
+        <div className="lg:hidden border-t border-zinc-800 bg-zinc-950 px-4 py-5 space-y-4">
           <div className="flex flex-col space-y-1.5">
             {navLinks.map((item) => {
               const Icon = item.icon;
@@ -198,7 +193,7 @@ export function AppNavbar() {
               <>
                 <div className="text-xs">
                   <div className="font-bold text-white">{user.full_name}</div>
-                  <div className="text-zinc-400 uppercase text-[10px] tracking-wider">{user.role}</div>
+                  <div className="text-zinc-400 text-[11px]">{user.email}</div>
                 </div>
                 <button
                   type="button"
@@ -222,7 +217,7 @@ export function AppNavbar() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex-1 text-center rounded-full bg-white py-2.5 text-xs font-bold text-zinc-950"
                 >
-                  Start a Project
+                  Create Account
                 </Link>
               </div>
             )}

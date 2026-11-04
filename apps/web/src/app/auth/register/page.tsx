@@ -39,7 +39,7 @@ export default function RegisterPage() {
       });
 
       setStoredSession(res.accessToken, res.user);
-      router.push('/account/security?registered=1');
+      router.push(`/account/security?registered=1&email=${encodeURIComponent(email)}`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

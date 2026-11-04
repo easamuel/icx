@@ -463,8 +463,11 @@ authRouter.post('/verify-email', async (req: Request, res: Response): Promise<vo
     return;
   }
 
-  await query(
-    'UPDATE users SET email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = $1',
+  const updatedRes = await query<UserRecord>(
+    `UPDATE users
+     SET email_verified_at = COALESCE(email_verified_at, NOW())
+     WHERE id = $1
+     RETURNING id, email, full_name, role, email_verified_at`,
     [userId]
   );
   await redis.del(RedisKeys.emailVerificationToken(token));
@@ -476,7 +479,50 @@ authRouter.post('/verify-email', async (req: Request, res: Response): Promise<vo
     targetId: userId,
   });
 
-  res.status(200).json({ status: 'verified' });
+  res.status(200).json({
+    status: 'verified',
+    user: updatedRes.rows[0] || null,
+  });
+});
+
+// ============================================================================
+// GET /api/v1/auth/verification-status (Real-time Cross-Device Status Polling)
+// ============================================================================
+authRouter.get('/verification-status', async (req: Request, res: Response): Promise<void> => {
+  const email = String(req.query.email || '').trim().toLowerCase();
+  const userId = String(req.query.userId || '').trim();
+
+  if (!email && !userId) {
+    res.status(400).json({ error: 'EMAIL_OR_USERID_REQUIRED' });
+    return;
+  }
+
+  const userRes = await query<{
+    id: string;
+    email: string;
+    full_name: string;
+    role: string;
+    email_verified_at: string | null;
+  }>(
+    `SELECT id, email, full_name, role, email_verified_at
+     FROM users
+     WHERE (email = $1 AND $1 IS NOT NULL)
+        OR (id = $2 AND $2 IS NOT NULL)
+     LIMIT 1`,
+    [email || null, userId || null]
+  );
+
+  const found = userRes.rows[0];
+  if (!found) {
+    res.status(404).json({ error: 'USER_NOT_FOUND' });
+    return;
+  }
+
+  res.status(200).json({
+    verified: Boolean(found.email_verified_at),
+    email_verified_at: found.email_verified_at,
+    user: found,
+  });
 });
 
 // ============================================================================
