@@ -342,44 +342,35 @@ export default function AdminExecutiveDashboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-950">
-      {/* Executive Console Header */}
+      {/* Header */}
       <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <Link href="/" target="_blank" title="View Live Public Storefront" className="flex items-center gap-2 group">
+          <div className="flex items-center gap-3">
+            <Link href="/" target="_blank" title="View Storefront" className="flex items-center gap-2 group">
               <IcxLogo variant="dark" mark="slash" showText={true} />
             </Link>
-            <div className="h-5 w-px bg-zinc-200 hidden sm:block" />
-            <div className="hidden sm:flex items-center gap-2">
-              <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#E6D8C3]">
-                Executive Console
-              </span>
-              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                <span>Production Live</span>
-              </span>
-            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/"
               target="_blank"
-              className="hidden md:inline-flex items-center gap-1 text-xs font-bold text-zinc-600 hover:text-zinc-950 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-600 hover:text-zinc-950 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-zinc-100"
+              title="View Public Storefront"
             >
-              <span>Public Storefront</span>
-              <ExternalLink className="h-3 w-3" />
+              <span className="hidden sm:inline">Storefront</span>
+              <ExternalLink className="h-3.5 w-3.5 text-zinc-500" />
             </Link>
 
-            <div className="h-4 w-px bg-zinc-200 hidden md:block" />
+            <div className="h-4 w-px bg-zinc-200" />
 
             {/* Admin identity badge */}
             <div className="flex items-center gap-2.5">
-              <div className="text-right hidden sm:block">
+              <div className="text-right hidden md:block">
                 <div className="text-xs font-black text-zinc-950 leading-none">
-                  {adminUser?.full_name || 'Executive Director'}
+                  {adminUser?.full_name || 'Admin'}
                 </div>
-                <div className="text-[10px] font-bold text-zinc-500 mt-0.5">
+                <div className="text-[10px] font-bold text-zinc-400 mt-0.5">
                   {adminUser?.email || 'admin@icxstudios.com'}
                 </div>
               </div>
@@ -387,7 +378,7 @@ export default function AdminExecutiveDashboardPage() {
                 type="button"
                 onClick={handleLogout}
                 className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-100 hover:bg-zinc-200 px-3 py-1.5 text-xs font-black text-zinc-800 transition-colors cursor-pointer"
-                title="Sign Out of Executive Console"
+                title="Sign Out"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Sign Out</span>
@@ -397,11 +388,11 @@ export default function AdminExecutiveDashboardPage() {
         </div>
       </header>
 
-      {/* Executive Sub-Header with Quick Actions */}
+      {/* Sub-Header with Quick Actions */}
       <div className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-950">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:py-6 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-zinc-950">
               Operations &amp; Fleet Management
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-zinc-600">
@@ -409,11 +400,11 @@ export default function AdminExecutiveDashboardPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => void handleDownloadCsv('/admin/payments', 'icx_payments_ledger.csv')}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 px-3.5 py-2 text-xs font-black text-zinc-800 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 px-3 py-2 text-xs font-black text-zinc-800 transition-colors"
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-zinc-700" />
               <span>Payments CSV</span>
@@ -421,25 +412,25 @@ export default function AdminExecutiveDashboardPage() {
             <button
               type="button"
               onClick={() => void handleDownloadCsv('/admin/audit-logs', 'icx_audit_events.csv')}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 px-3.5 py-2 text-xs font-black text-zinc-800 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 px-3 py-2 text-xs font-black text-zinc-800 transition-colors"
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-zinc-700" />
-              <span>Audit Trail CSV</span>
+              <span>Audit CSV</span>
             </button>
             <button
               type="button"
               onClick={() => void loadAdminData()}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 px-3.5 py-2 text-xs font-black text-white shadow transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 px-3.5 py-2 text-xs font-black text-white shadow-xs transition-colors"
             >
               <RefreshCw className="h-3.5 w-3.5" />
-              <span>Refresh Live Data</span>
+              <span>Refresh</span>
             </button>
           </div>
         </div>
 
         {/* Navigation Tabs Bar */}
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-1.5 overflow-x-auto py-2.5 no-scrollbar">
+          <div className="flex items-center gap-1.5 overflow-x-auto py-2.5 no-scrollbar scroll-smooth">
             {[
               { id: 'overview', label: 'Overview', icon: LayoutDashboard },
               { id: 'users', label: 'Users & Roles', count: users.length, icon: Users },
@@ -457,7 +448,7 @@ export default function AdminExecutiveDashboardPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id as AdminTab)}
-                  className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-black shrink-0 transition-all ${
+                  className={`inline-flex items-center gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-3.5 py-2 text-xs font-black shrink-0 transition-all ${
                     active
                       ? 'bg-zinc-950 text-white shadow-sm'
                       : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100'
@@ -481,70 +472,68 @@ export default function AdminExecutiveDashboardPage() {
         </div>
       </div>
 
-      <main className="mx-auto max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8 space-y-8 w-full">
+      <main className="mx-auto max-w-7xl flex-1 px-4 py-6 sm:py-8 sm:px-6 lg:px-8 space-y-6 sm:space-y-8 w-full">
         {/* TAB 1: DAILY ACTIVE METRICS OVERVIEW */}
         {activeTab === 'overview' && overview && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
               <div
                 onClick={() => setActiveTab('users')}
-                className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm hover:border-zinc-950 transition-all"
+                className="cursor-pointer rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm hover:border-zinc-950 transition-all min-w-0"
               >
                 <div className="text-xs font-bold text-zinc-500">Registered Accounts</div>
-                <div className="mt-2 text-3xl font-black text-zinc-950">{users.length}</div>
-                <div className="mt-1 text-[11px] font-bold text-emerald-700">
+                <div className="mt-2 text-2xl sm:text-3xl font-black text-zinc-950 truncate">{users.length}</div>
+                <div className="mt-1 text-[11px] font-bold text-emerald-700 truncate">
                   {confirmedUsersCount} Confirmed • {unconfirmedUsersCount} Unconfirmed
                 </div>
               </div>
 
               <div
                 onClick={() => setActiveTab('jobs')}
-                className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm hover:border-zinc-950 transition-all"
+                className="cursor-pointer rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm hover:border-zinc-950 transition-all min-w-0"
               >
                 <div className="text-xs font-bold text-zinc-500">Active Retouching Orders</div>
-                <div className="mt-2 text-3xl font-black text-zinc-950">
+                <div className="mt-2 text-2xl sm:text-3xl font-black text-zinc-950 truncate">
                   {overview.metrics.jobs?.active_jobs ?? 0}
                 </div>
-                <div className="mt-1 text-[11px] font-semibold text-zinc-500">
-                  Awaiting Client Review: {overview.metrics.jobs?.awaiting_review ?? 0}
+                <div className="mt-1 text-[11px] font-semibold text-zinc-500 truncate">
+                  Awaiting Review: {overview.metrics.jobs?.awaiting_review ?? 0}
                 </div>
               </div>
 
               <div
                 onClick={() => setActiveTab('bookings')}
-                className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm hover:border-zinc-950 transition-all"
+                className="cursor-pointer rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm hover:border-zinc-950 transition-all min-w-0"
               >
                 <div className="text-xs font-bold text-zinc-500">Photographer Bookings</div>
-                <div className="mt-2 text-3xl font-black text-zinc-950">
+                <div className="mt-2 text-2xl sm:text-3xl font-black text-zinc-950 truncate">
                   {bookings.length}
                 </div>
-                <div className="mt-1 text-[11px] font-bold text-emerald-700">
-                  Commission Earned:{' '}
-                  {formatNaira(overview.metrics.bookings?.total_commission_kobo ?? '0')}
+                <div className="mt-1 text-[11px] font-bold text-emerald-700 truncate">
+                  Commission: {formatNaira(overview.metrics.bookings?.total_commission_kobo ?? '0')}
                 </div>
               </div>
 
               <div
                 onClick={() => setActiveTab('equipment')}
-                className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm hover:border-zinc-950 transition-all"
+                className="cursor-pointer rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-5 sm:p-6 shadow-sm hover:border-zinc-950 transition-all min-w-0"
               >
                 <div className="text-xs font-bold text-zinc-500">Equipment Dispatched</div>
-                <div className="mt-2 text-3xl font-black text-amber-600">
+                <div className="mt-2 text-2xl sm:text-3xl font-black text-amber-600 truncate">
                   {overview.metrics.rentals?.items_out_on_rental ?? 0}
                 </div>
-                <div className="mt-1 text-[11px] font-semibold text-zinc-500">
-                  Confirmed Pickups: {overview.metrics.rentals?.confirmed_pickups ?? 0}
+                <div className="mt-1 text-[11px] font-semibold text-zinc-500 truncate">
+                  Pickups: {overview.metrics.rentals?.confirmed_pickups ?? 0}
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-zinc-200 bg-zinc-950 p-6 text-white shadow-lg">
+              <div className="rounded-2xl sm:rounded-3xl border border-zinc-200 bg-zinc-950 p-5 sm:p-6 text-white shadow-lg min-w-0">
                 <div className="text-xs font-bold text-zinc-400">Verified Gross Revenue</div>
-                <div className="mt-2 text-2xl font-black text-emerald-400">
+                <div className="mt-2 text-xl sm:text-2xl font-black text-emerald-400 truncate">
                   {formatNaira(overview.metrics.finance?.gross_revenue_kobo ?? '0')}
                 </div>
-                <div className="mt-1 text-[11px] text-zinc-400">
-                  Pending Photographer Reviews:{' '}
-                  {overview.metrics.pendingPhotographerApplications}
+                <div className="mt-1 text-[11px] text-zinc-400 truncate">
+                  Pending Photographers: {overview.metrics.pendingPhotographerApplications}
                 </div>
               </div>
             </div>
@@ -638,11 +627,11 @@ export default function AdminExecutiveDashboardPage() {
                   return (
                     <div
                       key={u.id}
-                      className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-zinc-300 transition-colors"
+                      className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-zinc-300 transition-colors min-w-0"
                     >
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-black text-zinc-950">
+                          <span className="text-sm font-black text-zinc-950 break-words">
                             {u.full_name || 'Unnamed Account'}
                           </span>
 
@@ -685,7 +674,7 @@ export default function AdminExecutiveDashboardPage() {
                           )}
                         </div>
 
-                        <p className="text-xs font-medium text-zinc-600">
+                        <p className="text-xs font-medium text-zinc-600 break-all sm:break-normal">
                           {u.email} • {u.phone || 'No phone'} • Joined {new Date(u.created_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </p>
                       </div>
@@ -751,8 +740,8 @@ export default function AdminExecutiveDashboardPage() {
 
         {/* TAB 3: PHOTOGRAPHER SHOOT BOOKINGS LEDGER */}
         {activeTab === 'bookings' && (
-          <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
-            <h2 className="text-lg font-black text-zinc-950">
+          <div className="rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm space-y-4">
+            <h2 className="text-base sm:text-lg font-black text-zinc-950">
               Photographer Session Bookings &amp; Slot Holds ({bookings.length})
             </h2>
             {bookings.length === 0 ? (
@@ -763,18 +752,18 @@ export default function AdminExecutiveDashboardPage() {
               bookings.map((b) => (
                 <div
                   key={b.id}
-                  className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                  className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-black text-zinc-950">
+                      <span className="text-sm font-black text-zinc-950 break-words">
                         #{String(b.id).slice(0, 8)} • {b.service_title}
                       </span>
                       <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
                         {String(b.status).replace(/_/g, ' ')}
                       </span>
                     </div>
-                    <p className="text-xs font-medium text-zinc-600">
+                    <p className="text-xs font-medium text-zinc-600 break-words">
                       Client: <strong>{b.customer_name}</strong> ({b.customer_email}) • Photographer:{' '}
                       <strong>{b.photographer_name}</strong>
                     </p>
@@ -783,7 +772,7 @@ export default function AdminExecutiveDashboardPage() {
                     </p>
                   </div>
 
-                  <div className="text-left lg:text-right shrink-0">
+                  <div className="text-left md:text-right shrink-0">
                     <div className="text-sm font-black text-zinc-950">
                       Total Fee: {formatNaira(b.price)}
                     </div>
@@ -799,24 +788,24 @@ export default function AdminExecutiveDashboardPage() {
 
         {/* TAB 4: EDITING JOB MANAGEMENT */}
         {activeTab === 'jobs' && (
-          <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
-            <h2 className="text-lg font-black text-zinc-950">
+          <div className="rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm space-y-4">
+            <h2 className="text-base sm:text-lg font-black text-zinc-950">
               Retouching Orders — Assign to Senior Retoucher, Self, or External Studio ({jobs.length})
             </h2>
             {jobs.map((job) => (
               <div
                 key={job.id}
-                className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0"
               >
-                <div>
+                <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-black text-zinc-950">
+                    <span className="text-sm font-black text-zinc-950 break-words">
                       #{job.id.slice(0, 8)} • {job.package_name}
                     </span>
                     <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
                       {job.status}
                     </span>
-                    <span className="text-xs font-medium text-zinc-500">
+                    <span className="text-xs font-medium text-zinc-500 break-words">
                       Client: {job.customer_name} ({job.customer_email})
                     </span>
                   </div>
@@ -829,14 +818,14 @@ export default function AdminExecutiveDashboardPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <select
                     aria-label="Assign to registered staff editor"
                     defaultValue={job.assignee_id || ''}
                     onChange={(e) =>
                       void handleAssignJob(job.id, e.target.value || null, undefined)
                     }
-                    className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-bold text-zinc-950"
+                    className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-bold text-zinc-950 max-w-full"
                   >
                     <option value="">-- Assign Staff Retoucher --</option>
                     {(overview?.staffEditors || []).map((ed: any) => (
@@ -856,7 +845,7 @@ export default function AdminExecutiveDashboardPage() {
                         [job.id]: e.target.value,
                       }))
                     }
-                    className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-950"
+                    className="rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-950 max-w-full"
                   />
                   <button
                     type="button"
@@ -867,7 +856,7 @@ export default function AdminExecutiveDashboardPage() {
                         offlineEditorNames[job.id] || ''
                       )
                     }
-                    className="rounded-full bg-zinc-950 px-4 py-2 text-xs font-black text-white"
+                    className="rounded-full bg-zinc-950 px-4 py-2 text-xs font-black text-white hover:bg-zinc-800 transition-colors"
                   >
                     Assign External
                   </button>
@@ -879,17 +868,17 @@ export default function AdminExecutiveDashboardPage() {
 
         {/* TAB 5: PHOTOGRAPHER ONBOARDING APPROVALS */}
         {activeTab === 'photographers' && (
-          <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
-            <h2 className="text-lg font-black text-zinc-950">
+          <div className="rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm space-y-4">
+            <h2 className="text-base sm:text-lg font-black text-zinc-950">
               Photographer Roster &amp; Applications ({photographers.length})
             </h2>
             {photographers.map((p) => (
               <div
                 key={p.id}
-                className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0"
               >
-                <div className="flex items-start gap-4 min-w-0 flex-1">
-                  <div className="h-16 w-16 rounded-2xl overflow-hidden bg-zinc-200 shrink-0 border border-zinc-200 shadow-sm">
+                <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+                  <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl overflow-hidden bg-zinc-200 shrink-0 border border-zinc-200 shadow-sm">
                     <img
                       src={p.avatar_url || (Array.isArray(p.portfolio_urls) && p.portfolio_urls[0]) || DEFAULT_PHOTOG_IMG}
                       alt={p.full_name}
@@ -900,13 +889,13 @@ export default function AdminExecutiveDashboardPage() {
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-black text-zinc-950 truncate">{p.full_name}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm sm:text-base font-black text-zinc-950 truncate">{p.full_name}</span>
                       <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white shrink-0">
                         {p.approval_status}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs font-semibold text-zinc-500">
+                    <p className="mt-1 text-xs font-semibold text-zinc-500 break-words">
                       {p.email} • {p.location || 'Lagos, Nigeria'}
                     </p>
                     <p className="mt-1 text-xs text-zinc-600 line-clamp-2">{p.bio}</p>
@@ -917,21 +906,21 @@ export default function AdminExecutiveDashboardPage() {
                   <button
                     type="button"
                     onClick={() => void handlePhotographerApproval(p.id, 'approved')}
-                    className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white"
+                    className="rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 transition-colors"
                   >
                     Approve
                   </button>
                   <button
                     type="button"
                     onClick={() => void handlePhotographerApproval(p.id, 'suspended')}
-                    className="rounded-full bg-amber-500 px-4 py-2 text-xs font-black text-zinc-950"
+                    className="rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-black text-zinc-950 hover:bg-amber-600 transition-colors"
                   >
                     Suspend
                   </button>
                   <button
                     type="button"
                     onClick={() => void handlePhotographerApproval(p.id, 'rejected')}
-                    className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700"
+                    className="rounded-full border border-red-200 bg-red-50 px-3.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
                   >
                     Reject
                   </button>
@@ -1201,42 +1190,42 @@ export default function AdminExecutiveDashboardPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
-              <h2 className="text-lg font-black text-zinc-950">
+            <div className="rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm space-y-4">
+              <h2 className="text-base sm:text-lg font-black text-zinc-950">
                 Active Rental Timeline &amp; Vault Dispatch ({rentals.length})
               </h2>
               {rentals.map((r) => (
                 <div
                   key={r.id}
-                  className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0"
                 >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-zinc-950">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-black text-zinc-950 break-words">
                         {r.item_name} × {r.units} unit(s)
                       </span>
                       <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
                         {r.status}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs font-medium text-zinc-600">
+                    <p className="text-xs font-medium text-zinc-600 break-words">
                       Dates: {formatAdminDateTime(r.start_date, r.end_date)} • Producer: {r.customer_name} (
                       {r.customer_phone})
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() => void handleRentalStatus(r.id, 'out')}
-                      className="rounded-full bg-amber-500 px-4 py-2 text-xs font-black text-zinc-950"
+                      className="rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-black text-zinc-950 hover:bg-amber-600 transition-colors"
                     >
                       Mark Dispatched (Out)
                     </button>
                     <button
                       type="button"
                       onClick={() => void handleRentalStatus(r.id, 'returned')}
-                      className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white"
+                      className="rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 transition-colors"
                     >
                       Mark Returned
                     </button>
@@ -1330,12 +1319,12 @@ export default function AdminExecutiveDashboardPage() {
 
             <form
               onSubmit={handleInviteStaff}
-              className="lg:col-span-2 rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-4"
+              className="lg:col-span-2 rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm space-y-4"
             >
               <h2 className="text-base font-black text-zinc-950">
                 Invite Internal Senior Retoucher or Administrator
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <input
                   type="text"
                   required
@@ -1372,7 +1361,7 @@ export default function AdminExecutiveDashboardPage() {
               </div>
               <button
                 type="submit"
-                className="rounded-full bg-zinc-950 px-6 py-3 text-xs font-black text-white"
+                className="rounded-full bg-zinc-950 px-5 py-2.5 text-xs font-black text-white hover:bg-zinc-800 transition-colors"
               >
                 Send Staff Invitation
               </button>
@@ -1382,26 +1371,26 @@ export default function AdminExecutiveDashboardPage() {
 
         {/* TAB 8: IMMUTABLE APPEND-ONLY AUDIT LOGS */}
         {activeTab === 'audit' && (
-          <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
-            <h2 className="text-lg font-black text-zinc-950">
+          <div className="rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm space-y-4">
+            <h2 className="text-base sm:text-lg font-black text-zinc-950">
               Append-Only Security &amp; Financial Audit Trail ({auditLogs.length})
             </h2>
             <div className="space-y-2 max-h-[540px] overflow-y-auto">
               {auditLogs.map((log) => (
                 <div
                   key={log.id}
-                  className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+                  className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
                 >
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <span className="font-mono font-black text-zinc-950">
                       {log.action}
                     </span>{' '}
-                    <span className="text-zinc-500 font-medium">
+                    <span className="text-zinc-500 font-medium break-words">
                       on {log.target_entity} (
                       {log.target_id ? String(log.target_id).slice(0, 8) : 'global'})
                     </span>
                   </div>
-                  <div className="text-[11px] font-semibold text-zinc-500">
+                  <div className="text-[11px] font-semibold text-zinc-500 shrink-0">
                     Actor: {log.actor_email || 'System/Webhook'} •{' '}
                     {new Date(log.created_at).toLocaleString()}
                   </div>
@@ -1412,17 +1401,15 @@ export default function AdminExecutiveDashboardPage() {
         )}
       </main>
 
-      {/* Executive SaaS Footer */}
+      {/* Minimal Footer */}
       <footer className="border-t border-zinc-200 bg-white py-6">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500 text-center sm:text-left">
           <div className="flex items-center gap-2 font-bold text-zinc-700">
-            <span>ICX Studios Executive Console</span>
-            <span>•</span>
-            <span className="text-zinc-400">Restricted Corporate Gateway</span>
+            <span>ICX Studios</span>
             <span>•</span>
             <span>Lagos &amp; Abuja</span>
           </div>
-          <div className="text-[11px] font-medium text-zinc-400">Strict Confidentiality • LearnArk Technology Limited</div>
+          <div className="text-[11px] font-medium text-zinc-400">© 2026 ICX Studios (LearnArk Technology Limited)</div>
         </div>
       </footer>
     </div>
