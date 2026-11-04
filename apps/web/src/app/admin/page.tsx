@@ -99,14 +99,23 @@ export default function AdminExecutiveDashboardPage() {
 
   useEffect(() => {
     try {
+      const token = getStoredAccessToken();
       const raw = window.localStorage.getItem('icx_user');
-      if (raw) {
-        setAdminUser(JSON.parse(raw));
+      if (!token || !raw) {
+        router.push('/l/admin/login');
+        return;
       }
+      const parsed = JSON.parse(raw);
+      if (parsed.role !== 'admin') {
+        clearStoredSession();
+        router.push('/l/admin/login');
+        return;
+      }
+      setAdminUser(parsed);
     } catch {
-      // Ignore parse error
+      router.push('/l/admin/login');
     }
-  }, []);
+  }, [router]);
 
   function handleLogout() {
     clearStoredSession();
