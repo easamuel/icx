@@ -481,6 +481,7 @@ export default function AdminExecutiveDashboardPage() {
         </div>
       </div>
 
+      <main className="mx-auto max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8 space-y-8 w-full">
         {/* TAB 1: DAILY ACTIVE METRICS OVERVIEW */}
         {activeTab === 'overview' && overview && (
           <div className="space-y-6">
