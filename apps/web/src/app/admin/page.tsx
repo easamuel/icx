@@ -31,7 +31,7 @@ import {
 import { formatNaira } from '@icx/ui-core';
 import { IcxLogo } from '@/components/brand/IcxLogo';
 import { TusFileUploader } from '@/components/upload/TusFileUploader';
-import { apiFetch, clearStoredSession, getStoredAccessToken } from '@/lib/api';
+import { apiFetch, clearStoredSession, setStoredSession, getStoredAccessToken } from '@/lib/api';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || '/api/v1';
