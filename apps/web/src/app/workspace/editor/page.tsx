@@ -121,11 +121,7 @@ export default function EditorWorkspacePage() {
       <div className="border-b border-zinc-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
-              <Sliders className="h-3 w-3" />
-              <span>Color &amp; Retouching Suite</span>
-            </span>
-            <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
               Senior Retoucher Production Queue
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-zinc-600">

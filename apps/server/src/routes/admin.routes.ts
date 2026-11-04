@@ -507,15 +507,20 @@ adminRouter.get('/users', async (_req: Request, res: Response): Promise<void> =>
 
 adminRouter.patch('/users/:userId', async (req: Request, res: Response): Promise<void> => {
   const userId = String(req.params.userId || '');
-  const { role, status } = req.body as { role?: string; status?: string };
+  const { role, status, verify_email } = req.body as {
+    role?: string;
+    status?: string;
+    verify_email?: boolean;
+  };
 
   const updated = await query(
     `UPDATE users
      SET role = COALESCE($1, role),
-         status = COALESCE($2, status)
-     WHERE id = $3
-     RETURNING id, email, role, status`,
-    [role ?? null, status ?? null, userId]
+         status = COALESCE($2, status),
+         email_verified_at = CASE WHEN $3 = true THEN COALESCE(email_verified_at, NOW()) ELSE email_verified_at END
+     WHERE id = $4
+     RETURNING id, email, role, phone, full_name, status, email_verified_at, created_at`,
+    [role ?? null, status ?? null, verify_email ?? false, userId]
   );
 
   await recordAuditEvent({
@@ -523,7 +528,7 @@ adminRouter.patch('/users/:userId', async (req: Request, res: Response): Promise
     action: 'ADMIN_USER_MODIFIED',
     targetEntity: 'users',
     targetId: userId,
-    details: { role, status },
+    details: { role, status, verify_email },
   });
 
   res.status(200).json({ user: updated.rows[0] });

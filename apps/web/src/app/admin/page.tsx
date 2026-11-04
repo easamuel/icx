@@ -10,6 +10,9 @@ import {
   Camera,
   Package,
   Shield,
+  Calendar,
+  MailCheck,
+  Clock,
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import { AppNavbar } from '@/components/layout/AppNavbar';
@@ -22,6 +25,8 @@ const API_BASE_URL =
 
 type AdminTab =
   | 'overview'
+  | 'users'
+  | 'bookings'
   | 'jobs'
   | 'photographers'
   | 'equipment'
@@ -31,6 +36,9 @@ type AdminTab =
 export default function AdminExecutiveDashboardPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [overview, setOverview] = useState<Record<string, any> | null>(null);
+  const [users, setUsers] = useState<Array<Record<string, any>>>([]);
+  const [userFilter, setUserFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
+  const [bookings, setBookings] = useState<Array<Record<string, any>>>([]);
   const [jobs, setJobs] = useState<Array<Record<string, any>>>([]);
   const [photographers, setPhotographers] = useState<Array<Record<string, any>>>([]);
   const [equipment, setEquipment] = useState<Array<Record<string, any>>>([]);
@@ -56,8 +64,10 @@ export default function AdminExecutiveDashboardPage() {
 
   const loadAdminData = useCallback(async () => {
     try {
-      const [ov, jb, ph, eq, au] = await Promise.all([
+      const [ov, us, bk, jb, ph, eq, au] = await Promise.all([
         apiFetch<Record<string, any>>('/admin/overview'),
+        apiFetch<{ users: Array<Record<string, any>> }>('/admin/users'),
+        apiFetch<{ bookings: Array<Record<string, any>> }>('/admin/bookings'),
         apiFetch<{ jobs: Array<Record<string, any>> }>('/admin/jobs'),
         apiFetch<{ photographers: Array<Record<string, any>> }>('/admin/photographers'),
         apiFetch<{
@@ -68,6 +78,8 @@ export default function AdminExecutiveDashboardPage() {
       ]);
 
       setOverview(ov);
+      setUsers(us.users);
+      setBookings(bk.bookings);
       setJobs(jb.jobs);
       setPhotographers(ph.photographers);
       setEquipment(eq.equipment);
@@ -95,6 +107,18 @@ export default function AdminExecutiveDashboardPage() {
   useEffect(() => {
     void loadAdminData();
   }, [loadAdminData]);
+
+  async function handleModifyUser(
+    userId: string,
+    payload: { status?: string; role?: string; verify_email?: boolean }
+  ) {
+    await apiFetch(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    setStatusBanner('Updated user account record.');
+    await loadAdminData();
+  }
 
   async function handleAssignJob(
     orderId: string,
@@ -228,6 +252,7 @@ export default function AdminExecutiveDashboardPage() {
     setInviteEmail('');
     setInviteName('');
     setInvitePhone('');
+    await loadAdminData();
   }
 
   async function handleDownloadCsv(
@@ -247,6 +272,14 @@ export default function AdminExecutiveDashboardPage() {
     a.click();
   }
 
+  const confirmedUsersCount = users.filter((u) => Boolean(u.email_verified_at)).length;
+  const unconfirmedUsersCount = users.length - confirmedUsersCount;
+  const filteredUsers = users.filter((u) => {
+    if (userFilter === 'confirmed') return Boolean(u.email_verified_at);
+    if (userFilter === 'unconfirmed') return !u.email_verified_at;
+    return true;
+  });
+
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-950">
       <AppNavbar />
@@ -254,15 +287,11 @@ export default function AdminExecutiveDashboardPage() {
       <div className="border-b border-zinc-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
-              <Shield className="h-3 w-3" />
-              <span>Executive Governance</span>
-            </span>
-            <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
               ICX Studios Executive Control Center
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-zinc-600">
-              Oversee retouching queues, photographer roster approvals, cinema fleet dispatches, dynamic pricing, and financial ledgers.
+              Oversee registered users &amp; email confirmations, photographer bookings, retouching queues, cinema fleet dispatches, and financial ledgers.
             </p>
           </div>
           <div className="flex flex-wrap gap-2.5">
@@ -309,11 +338,13 @@ export default function AdminExecutiveDashboardPage() {
         <div className="flex items-center gap-2 overflow-x-auto border-b border-zinc-200 pb-3">
           {[
             { id: 'overview', label: '01. Daily Metrics', icon: Shield },
-            { id: 'jobs', label: '02. Retouching Queue', icon: Sliders },
-            { id: 'photographers', label: '03. Photographer Roster', icon: Camera },
-            { id: 'equipment', label: '04. Cinema Vault & Dispatch', icon: Package },
-            { id: 'config', label: '05. Pricing, Watermark & Staff', icon: Users },
-            { id: 'audit', label: '06. Immutable Audit Ledger', icon: FileSpreadsheet },
+            { id: 'users', label: `02. Users & Email Status (${users.length})`, icon: MailCheck },
+            { id: 'bookings', label: `03. Shoot Bookings (${bookings.length})`, icon: Calendar },
+            { id: 'jobs', label: `04. Retouching Queue (${jobs.length})`, icon: Sliders },
+            { id: 'photographers', label: `05. Photographer Roster (${photographers.length})`, icon: Camera },
+            { id: 'equipment', label: `06. Cinema Vault & Rentage (${equipment.length})`, icon: Package },
+            { id: 'config', label: '07. Pricing, Watermark & Staff', icon: Users },
+            { id: 'audit', label: '08. Immutable Audit Ledger', icon: FileSpreadsheet },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -337,52 +368,258 @@ export default function AdminExecutiveDashboardPage() {
 
         {/* TAB 1: DAILY ACTIVE METRICS OVERVIEW */}
         {activeTab === 'overview' && overview && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-              <div className="text-xs font-bold text-zinc-500">Active Retouching Orders</div>
-              <div className="mt-2 text-3xl font-black text-zinc-950">
-                {overview.metrics.jobs?.active_jobs ?? 0}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <div
+                onClick={() => setActiveTab('users')}
+                className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm hover:border-zinc-950 transition-all"
+              >
+                <div className="text-xs font-bold text-zinc-500">Registered Accounts</div>
+                <div className="mt-2 text-3xl font-black text-zinc-950">{users.length}</div>
+                <div className="mt-1 text-[11px] font-bold text-emerald-700">
+                  {confirmedUsersCount} Confirmed • {unconfirmedUsersCount} Unconfirmed
+                </div>
               </div>
-              <div className="mt-1 text-[11px] font-semibold text-zinc-500">
-                Awaiting Client Review: {overview.metrics.jobs?.awaiting_review ?? 0}
-              </div>
-            </div>
 
-            <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-              <div className="text-xs font-bold text-zinc-500">Upcoming Shoot Bookings</div>
-              <div className="mt-2 text-3xl font-black text-zinc-950">
-                {overview.metrics.bookings?.upcoming_bookings ?? 0}
+              <div
+                onClick={() => setActiveTab('jobs')}
+                className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm hover:border-zinc-950 transition-all"
+              >
+                <div className="text-xs font-bold text-zinc-500">Active Retouching Orders</div>
+                <div className="mt-2 text-3xl font-black text-zinc-950">
+                  {overview.metrics.jobs?.active_jobs ?? 0}
+                </div>
+                <div className="mt-1 text-[11px] font-semibold text-zinc-500">
+                  Awaiting Client Review: {overview.metrics.jobs?.awaiting_review ?? 0}
+                </div>
               </div>
-              <div className="mt-1 text-[11px] font-bold text-emerald-700">
-                Commission Earned:{' '}
-                {formatNaira(overview.metrics.bookings?.total_commission_kobo ?? '0')}
-              </div>
-            </div>
 
-            <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-              <div className="text-xs font-bold text-zinc-500">Equipment Dispatched</div>
-              <div className="mt-2 text-3xl font-black text-amber-600">
-                {overview.metrics.rentals?.items_out_on_rental ?? 0}
+              <div
+                onClick={() => setActiveTab('bookings')}
+                className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm hover:border-zinc-950 transition-all"
+              >
+                <div className="text-xs font-bold text-zinc-500">Photographer Bookings</div>
+                <div className="mt-2 text-3xl font-black text-zinc-950">
+                  {bookings.length}
+                </div>
+                <div className="mt-1 text-[11px] font-bold text-emerald-700">
+                  Commission Earned:{' '}
+                  {formatNaira(overview.metrics.bookings?.total_commission_kobo ?? '0')}
+                </div>
               </div>
-              <div className="mt-1 text-[11px] font-semibold text-zinc-500">
-                Confirmed Pickups: {overview.metrics.rentals?.confirmed_pickups ?? 0}
-              </div>
-            </div>
 
-            <div className="rounded-3xl border border-zinc-200 bg-zinc-950 p-6 text-white shadow-lg">
-              <div className="text-xs font-bold text-zinc-400">Verified Gross Revenue</div>
-              <div className="mt-2 text-2xl font-black text-emerald-400">
-                {formatNaira(overview.metrics.finance?.gross_revenue_kobo ?? '0')}
+              <div
+                onClick={() => setActiveTab('equipment')}
+                className="cursor-pointer rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm hover:border-zinc-950 transition-all"
+              >
+                <div className="text-xs font-bold text-zinc-500">Equipment Dispatched</div>
+                <div className="mt-2 text-3xl font-black text-amber-600">
+                  {overview.metrics.rentals?.items_out_on_rental ?? 0}
+                </div>
+                <div className="mt-1 text-[11px] font-semibold text-zinc-500">
+                  Confirmed Pickups: {overview.metrics.rentals?.confirmed_pickups ?? 0}
+                </div>
               </div>
-              <div className="mt-1 text-[11px] text-zinc-400">
-                Pending Photographer Reviews:{' '}
-                {overview.metrics.pendingPhotographerApplications}
+
+              <div className="rounded-3xl border border-zinc-200 bg-zinc-950 p-6 text-white shadow-lg">
+                <div className="text-xs font-bold text-zinc-400">Verified Gross Revenue</div>
+                <div className="mt-2 text-2xl font-black text-emerald-400">
+                  {formatNaira(overview.metrics.finance?.gross_revenue_kobo ?? '0')}
+                </div>
+                <div className="mt-1 text-[11px] text-zinc-400">
+                  Pending Photographer Reviews:{' '}
+                  {overview.metrics.pendingPhotographerApplications}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 2: EDITING JOB MANAGEMENT */}
+        {/* TAB 2: USERS & EMAIL CONFIRMATION STATUS */}
+        {activeTab === 'users' && (
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-5">
+              <div>
+                <h2 className="text-lg font-black text-zinc-950">
+                  Registered Users &amp; Email Confirmation Directory ({users.length})
+                </h2>
+                <p className="mt-1 text-xs text-zinc-600">
+                  Track every client, photographer, retoucher, and administrator—including real-time email confirmation status.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUserFilter('all')}
+                  className={`rounded-full px-4 py-2 text-xs font-black transition-all ${
+                    userFilter === 'all'
+                      ? 'bg-zinc-950 text-white'
+                      : 'border border-zinc-200 bg-zinc-50 text-zinc-700'
+                  }`}
+                >
+                  All ({users.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserFilter('confirmed')}
+                  className={`rounded-full px-4 py-2 text-xs font-black transition-all ${
+                    userFilter === 'confirmed'
+                      ? 'bg-emerald-600 text-white'
+                      : 'border border-emerald-200 bg-emerald-50 text-emerald-800'
+                  }`}
+                >
+                  Confirmed Email ({confirmedUsersCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserFilter('unconfirmed')}
+                  className={`rounded-full px-4 py-2 text-xs font-black transition-all ${
+                    userFilter === 'unconfirmed'
+                      ? 'bg-amber-500 text-zinc-950'
+                      : 'border border-amber-200 bg-amber-50 text-amber-900'
+                  }`}
+                >
+                  Unconfirmed Email ({unconfirmedUsersCount})
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {filteredUsers.map((u) => {
+                const isVerified = Boolean(u.email_verified_at);
+                return (
+                  <div
+                    key={u.id}
+                    className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-black text-zinc-950">
+                          {u.full_name}
+                        </span>
+                        <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
+                          {u.role}
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase ${
+                            u.status === 'active'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {u.status}
+                        </span>
+                        {isVerified ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-0.5 text-[10px] font-black uppercase text-white">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>
+                              Email Confirmed ({new Date(u.email_verified_at).toLocaleDateString()})
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-3 py-0.5 text-[10px] font-black uppercase text-amber-900">
+                            <Clock className="h-3 w-3" />
+                            <span>Awaiting Email Confirmation</span>
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs font-medium text-zinc-600">
+                        {u.email} • {u.phone} • Joined {new Date(u.created_at).toLocaleString()}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {!isVerified && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleModifyUser(u.id, { verify_email: true })
+                          }
+                          className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
+                        >
+                          Verify Email Now
+                        </button>
+                      )}
+                      {u.status === 'active' ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleModifyUser(u.id, { status: 'suspended' })
+                          }
+                          className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-bold text-red-700 hover:bg-red-100"
+                        >
+                          Suspend Account
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleModifyUser(u.id, { status: 'active' })
+                          }
+                          className="rounded-full bg-zinc-950 px-4 py-2 text-xs font-black text-white"
+                        >
+                          Reactivate Account
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: PHOTOGRAPHER SHOOT BOOKINGS LEDGER */}
+        {activeTab === 'bookings' && (
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
+            <h2 className="text-lg font-black text-zinc-950">
+              Photographer Session Bookings &amp; Slot Holds ({bookings.length})
+            </h2>
+            {bookings.length === 0 ? (
+              <p className="text-xs text-zinc-500">
+                No photographer bookings recorded yet.
+              </p>
+            ) : (
+              bookings.map((b) => (
+                <div
+                  key={b.id}
+                  className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                >
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-black text-zinc-950">
+                        #{String(b.id).slice(0, 8)} • {b.service_title}
+                      </span>
+                      <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
+                        {String(b.status).replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-zinc-600">
+                      Client: <strong>{b.customer_name}</strong> ({b.customer_email}) • Photographer:{' '}
+                      <strong>{b.photographer_name}</strong>
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      Session Window: {new Date(b.start_time).toLocaleString()} →{' '}
+                      {new Date(b.end_time).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <div className="text-left lg:text-right shrink-0">
+                    <div className="text-sm font-black text-zinc-950">
+                      Total Fee: {formatNaira(b.price)}
+                    </div>
+                    <div className="text-xs font-bold text-emerald-700">
+                      Studio Commission: {formatNaira(b.commission_amount)}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: EDITING JOB MANAGEMENT */}
         {activeTab === 'jobs' && (
           <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
             <h2 className="text-lg font-black text-zinc-950">
@@ -462,7 +699,7 @@ export default function AdminExecutiveDashboardPage() {
           </div>
         )}
 
-        {/* TAB 3: PHOTOGRAPHER ONBOARDING APPROVALS */}
+        {/* TAB 5: PHOTOGRAPHER ONBOARDING APPROVALS */}
         {activeTab === 'photographers' && (
           <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
             <h2 className="text-lg font-black text-zinc-950">
@@ -514,21 +751,17 @@ export default function AdminExecutiveDashboardPage() {
           </div>
         )}
 
-        {/* TAB 4: EQUIPMENT INVENTORY & RENTAL TIMELINE (ADMIN-ONLY RENTAGE POSTING) */}
+        {/* TAB 6: EQUIPMENT INVENTORY & RENTAL TIMELINE (ADMIN-ONLY RENTAGE POSTING) */}
         {activeTab === 'equipment' && (
           <div className="space-y-8">
-            {/* Admin-Exclusive Form to Post New Gear for Rentage */}
             <form
               onSubmit={handleCreateEquipment}
               className="rounded-3xl border-2 border-zinc-950 bg-white p-6 sm:p-8 shadow-sm space-y-5"
             >
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-4">
                 <div>
-                  <span className="inline-block rounded-full bg-zinc-950 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-white">
-                    Admin Exclusive Authority
-                  </span>
-                  <h2 className="mt-2 text-xl font-black text-zinc-950">
-                    Post New Cinema &amp; Studio Equipment for Rentage
+                  <h2 className="text-xl font-black text-zinc-950">
+                    Post New Cinema &amp; Studio Equipment for Rentage (Admin Exclusive)
                   </h2>
                   <p className="text-xs text-zinc-600">
                     Only Executive Administrators can publish equipment to the live rentage catalog on /rentals.
@@ -747,7 +980,7 @@ export default function AdminExecutiveDashboardPage() {
           </div>
         )}
 
-        {/* TAB 5: PRICING, WATERMARK ARTWORK & STAFF INVITATION */}
+        {/* TAB 7: PRICING, WATERMARK ARTWORK & STAFF INVITATION */}
         {activeTab === 'config' && (
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             <form
@@ -880,7 +1113,7 @@ export default function AdminExecutiveDashboardPage() {
           </div>
         )}
 
-        {/* TAB 6: IMMUTABLE APPEND-ONLY AUDIT LOGS */}
+        {/* TAB 8: IMMUTABLE APPEND-ONLY AUDIT LOGS */}
         {activeTab === 'audit' && (
           <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
             <h2 className="text-lg font-black text-zinc-950">

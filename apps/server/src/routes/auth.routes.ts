@@ -22,6 +22,10 @@ import {
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { rateLimiter } from '../middleware/rateLimiter.js';
 import { env } from '../config/env.js';
+import {
+  dispatchNotification,
+  buildStudioEmailTemplate,
+} from '../engines/notification.engine.js';
 
 export const authRouter = Router();
 
@@ -114,6 +118,52 @@ authRouter.post(
         'EX',
         86400
       );
+
+      // Dispatch real branded Email Confirmation via mail.icxora.com SMTP
+      const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
+      const verifyUrl = `${webUrl}/account/security?verify=${verificationToken}`;
+
+      void dispatchNotification({
+        userId: newUser.id,
+        channel: 'email',
+        templateKey: 'NT_EMAIL_VERIFICATION',
+        recipient: newUser.email,
+        subject: 'Confirm Your ICX Studios Account',
+        body: buildStudioEmailTemplate({
+          heading: `Welcome to ICX Studios, ${newUser.full_name}.`,
+          subheading: 'Confirm your email address to activate full studio privileges.',
+          bodyHtml: `
+            <p style="margin:0 0 16px;">Thank you for creating your <strong>${newUser.role === 'photographer' ? 'Partner Photographer' : 'Client Studio'}</strong> account on <strong>ICX Studios</strong>.</p>
+            <p style="margin:0 0 16px;">Please confirm your email address within the next 24 hours by clicking the button below. If you prefer to enter a verification token manually in your Account Security settings, your token is:</p>
+            <div style="background:#F4F4F5;border:1px solid #E4E4E7;border-radius:10px;padding:12px 16px;font-family:monospace;font-size:13px;color:#09090B;word-break:break-all;">${verificationToken}</div>
+          `,
+          ctaLabel: 'Confirm Email Address',
+          ctaUrl: verifyUrl,
+          footerNote: 'This verification link expires in 24 hours.',
+        }),
+      });
+
+      if (role === 'photographer') {
+        void dispatchNotification({
+          userId: newUser.id,
+          channel: 'email',
+          templateKey: 'NT_06_PHOTOGRAPHER_APPLIED',
+          recipient: 'admin@icxora.com',
+          subject: `New Photographer Application: ${newUser.full_name}`,
+          body: buildStudioEmailTemplate({
+            heading: 'New Photographer Roster Application',
+            subheading: `${newUser.full_name} (${newUser.email}) has applied to join the ICX Studios Photographer Directory.`,
+            bodyHtml: `
+              <p style="margin:0 0 12px;"><strong>Applicant:</strong> ${newUser.full_name}</p>
+              <p style="margin:0 0 12px;"><strong>Email:</strong> ${newUser.email}</p>
+              <p style="margin:0 0 12px;"><strong>Phone:</strong> ${newUser.phone}</p>
+              <p style="margin:0;">Review and approve or reject this photographer profile from the Executive Control Center.</p>
+            `,
+            ctaLabel: 'Open Executive Admin Console',
+            ctaUrl: `${webUrl}/admin`,
+          }),
+        });
+      }
 
       const tokens = await issueTokenPair(newUser);
       setRefreshCookie(res, tokens.refreshToken);
@@ -428,6 +478,70 @@ authRouter.post('/verify-email', async (req: Request, res: Response): Promise<vo
 });
 
 // ============================================================================
+// POST /api/v1/auth/resend-verification (Resend Email Confirmation Link)
+// ============================================================================
+authRouter.post(
+  '/resend-verification',
+  requireAuth,
+  rateLimiter({ scope: 'auth_resend_verify', windowSeconds: 300, maxRequests: 5 }),
+  async (req: Request, res: Response): Promise<void> => {
+    const userRes = await query<UserRecord>(
+      'SELECT id, email, full_name, role, email_verified_at FROM users WHERE id = $1 LIMIT 1',
+      [req.user!.sub]
+    );
+    const user = userRes.rows[0];
+    if (!user) {
+      res.status(404).json({ error: 'USER_NOT_FOUND' });
+      return;
+    }
+
+    if (user.email_verified_at) {
+      res.status(200).json({
+        status: 'already_verified',
+        message: 'Your email address is already verified.',
+      });
+      return;
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    await redis.set(
+      RedisKeys.emailVerificationToken(verificationToken),
+      user.id,
+      'EX',
+      86400
+    );
+
+    const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
+    const verifyUrl = `${webUrl}/account/security?verify=${verificationToken}`;
+
+    await dispatchNotification({
+      userId: user.id,
+      channel: 'email',
+      templateKey: 'NT_EMAIL_VERIFICATION_RESEND',
+      recipient: user.email,
+      subject: 'Confirm Your ICX Studios Email Address',
+      body: buildStudioEmailTemplate({
+        heading: `Verify Your Email Address, ${user.full_name}.`,
+        subheading: 'Click the button below to confirm your ICX Studios account.',
+        bodyHtml: `
+          <p style="margin:0 0 16px;">You requested a new email verification link for your ICX Studios account (<strong>${user.email}</strong>).</p>
+          <p style="margin:0 0 16px;">Click the confirmation button below, or paste this token into your Account Security page:</p>
+          <div style="background:#F4F4F5;border:1px solid #E4E4E7;border-radius:10px;padding:12px 16px;font-family:monospace;font-size:13px;color:#09090B;word-break:break-all;">${verificationToken}</div>
+        `,
+        ctaLabel: 'Confirm Email Address',
+        ctaUrl: verifyUrl,
+        footerNote: 'This verification link expires in 24 hours.',
+      }),
+    });
+
+    res.status(200).json({
+      status: 'verification_email_sent',
+      message: `A new confirmation email has been sent to ${user.email}.`,
+    });
+  }
+);
+
+// ============================================================================
 // POST /api/v1/auth/password-reset/request & /confirm (AC-03: Password Reset by Email)
 // ============================================================================
 authRouter.post(
@@ -440,8 +554,8 @@ authRouter.post(
       return;
     }
 
-    const userRes = await query<{ id: string; email: string }>(
-      'SELECT id, email FROM users WHERE email = $1 AND status = $2 LIMIT 1',
+    const userRes = await query<{ id: string; email: string; full_name: string }>(
+      'SELECT id, email, full_name FROM users WHERE email = $1 AND status = $2 LIMIT 1',
       [email, 'active']
     );
     const user = userRes.rows[0];
@@ -455,6 +569,29 @@ authRouter.post(
         'EX',
         1800 // 30 minutes expiration
       );
+
+      const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
+      const resetUrl = `${webUrl}/auth/reset-password?token=${resetToken}`;
+
+      void dispatchNotification({
+        userId: user.id,
+        channel: 'email',
+        templateKey: 'NT_PASSWORD_RESET',
+        recipient: user.email,
+        subject: 'Reset Your ICX Studios Password',
+        body: buildStudioEmailTemplate({
+          heading: 'Password Reset Request',
+          subheading: `We received a request to reset the password for ${user.email}.`,
+          bodyHtml: `
+            <p style="margin:0 0 16px;">Hello ${user.full_name},</p>
+            <p style="margin:0 0 16px;">Click the button below to choose a new password for your ICX Studios account, or copy and paste this reset token:</p>
+            <div style="background:#F4F4F5;border:1px solid #E4E4E7;border-radius:10px;padding:12px 16px;font-family:monospace;font-size:13px;color:#09090B;word-break:break-all;">${resetToken}</div>
+          `,
+          ctaLabel: 'Reset Studio Password',
+          ctaUrl: resetUrl,
+          footerNote: 'This password reset link expires in 30 minutes. If you did not request a reset, you can safely ignore this email.',
+        }),
+      });
 
       await recordAuditEvent({
         actorId: user.id,
@@ -472,7 +609,7 @@ authRouter.post(
     // Always return 200 to prevent email enumeration
     res.status(200).json({
       status: 'reset_instructions_dispatched',
-      message: 'If an active account matches that email, a password reset token has been dispatched.',
+      message: 'If an active account matches that email, a password reset link has been sent to your inbox.',
       resetTokenPreview,
     });
   }
@@ -621,6 +758,30 @@ authRouter.post(
         client
       );
       return staff;
+    });
+
+    const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
+    void dispatchNotification({
+      userId: created.id,
+      channel: 'email',
+      templateKey: 'NT_STAFF_INVITE',
+      recipient: created.email,
+      subject: `You Have Been Invited to ICX Studios (${created.role.toUpperCase()})`,
+      body: buildStudioEmailTemplate({
+        heading: `Welcome to the ICX Studios Team, ${created.full_name}.`,
+        subheading: `An administrator has provisioned your ${created.role} workspace account.`,
+        bodyHtml: `
+          <p style="margin:0 0 14px;">Sign in to your ICX Studios workspace using the credentials below:</p>
+          <div style="background:#F4F4F5;border:1px solid #E4E4E7;border-radius:10px;padding:14px 16px;font-size:13px;color:#09090B;margin-bottom:16px;">
+            <div style="margin-bottom:6px;"><strong>Email:</strong> ${created.email}</div>
+            <div style="margin-bottom:6px;"><strong>Temporary Password:</strong> <code style="font-family:monospace;">${temporaryPassword}</code></div>
+            <div><strong>Assigned Role:</strong> ${created.role.toUpperCase()}</div>
+          </div>
+          <p style="margin:0;">After signing in, please enable Two-Factor Authentication (2FA) under Account Security.</p>
+        `,
+        ctaLabel: 'Sign In to Workspace',
+        ctaUrl: `${webUrl}/auth/login`,
+      }),
     });
 
     res.status(201).json({

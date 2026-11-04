@@ -41,7 +41,16 @@ export async function runSeed(): Promise<void> {
 
     // Ensure any legacy demo names are updated to authentic Nigerian names
     await client.query(
-      `UPDATE users SET full_name = 'Adesua Nwosu Studios' WHERE full_name ILIKE '%Vance%'`
+      `UPDATE users SET full_name = 'Adesua Nwosu Studios' WHERE full_name ILIKE '%Vance%' OR full_name ILIKE '%Amara Nwosu%'`
+    );
+    await client.query(
+      `UPDATE users SET full_name = 'Kolawole Olanrewaju Visuals' WHERE full_name ILIKE '%Tunde Bakare%'`
+    );
+    await client.query(
+      `UPDATE users SET full_name = 'Ngozi Ezeani Studio' WHERE full_name ILIKE '%Zainab Danjuma%'`
+    );
+    await client.query(
+      `UPDATE users SET full_name = 'Obinna Adeleke Commercial' WHERE full_name ILIKE '%David Nwachukwu%'`
     );
 
     // 2. Seed Roster of 4 Approved Master Photographers with 100% Verified Nigerian/African Portfolios
@@ -216,6 +225,27 @@ export async function runSeed(): Promise<void> {
         );
       }
     }
+
+    // Scrub any remaining photographer_profiles rows that have empty or legacy non-African Unsplash URLs
+    await client.query(
+      `UPDATE photographer_profiles
+       SET portfolio_urls = $1::jsonb
+       WHERE portfolio_urls = '[]'::jsonb
+          OR portfolio_urls::text LIKE '%1534528741775%'
+          OR portfolio_urls::text LIKE '%1509631179647%'
+          OR portfolio_urls::text LIKE '%1515886657613%'
+          OR portfolio_urls::text LIKE '%1519741497674%'
+          OR portfolio_urls::text LIKE '%1511285560929%'
+          OR portfolio_urls::text LIKE '%1573496359142%'`,
+      [
+        JSON.stringify([
+          'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=1000&q=85',
+          'https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=1000&q=85',
+          'https://images.unsplash.com/photo-1589156280159-27698a70f29e?auto=format&fit=crop&w=1000&q=85',
+          'https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&w=1000&q=85',
+        ]),
+      ]
+    );
 
     // 3. Seed Studio Photo Editing Packages
     await client.query(`

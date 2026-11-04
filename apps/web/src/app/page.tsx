@@ -174,12 +174,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
             <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12">
               {/* Left 6 Columns: Editorial Copy & Primary CTAs */}
-              <div className="lg:col-span-6 space-y-7">
-                <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/90 px-4 py-1.5 text-xs font-semibold text-zinc-300">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Lagos &amp; Abuja Creative Production House</span>
-                </div>
-
+              <div className="lg:col-span-6 space-y-6">
                 <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl leading-[1.06]">
                   Where Master Imagery Meets Precision Production.
                 </h1>

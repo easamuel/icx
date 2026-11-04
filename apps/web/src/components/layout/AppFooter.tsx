@@ -5,12 +5,18 @@ import { ShieldCheck, MapPin, Phone, Mail, ArrowUpRight } from 'lucide-react';
 
 export function AppFooter() {
   return (
-    <footer className="border-t border-zinc-200 bg-zinc-950 text-white">
+    <footer className="border-t border-zinc-800 bg-zinc-950 text-white">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-5">
           {/* Column 1-2: Brand & Studio Locations */}
           <div className="lg:col-span-2 space-y-4">
-            <IcxLogo variant="light" />
+            <Link
+              href="/"
+              aria-label="ICX Studios Home (icxora.com)"
+              className="inline-flex items-center group"
+            >
+              <IcxLogo variant="light" className="transition-transform group-hover:scale-[1.01]" />
+            </Link>
             <p className="max-w-sm text-xs sm:text-sm text-zinc-400 leading-relaxed">
               West Africa’s premier creative production ecosystem. Bespoke frequency-separation photo retouching, vetted master photographers, and insured cinema equipment rentals.
             </p>
@@ -30,12 +36,17 @@ export function AppFooter() {
             </div>
           </div>
 
-          {/* Column 3: Core Studio Services */}
+          {/* Column 3: Core Studio Services (Includes Active Home Link) */}
           <div className="space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-              Studio Services
+              Studio Navigation
             </h3>
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium text-zinc-300">
+              <li>
+                <Link href="/" className="font-bold text-white hover:text-zinc-200 transition-colors">
+                  Home
+                </Link>
+              </li>
               <li>
                 <Link href="/editing" className="hover:text-white transition-colors">
                   Editorial Photo Retouching
@@ -109,6 +120,9 @@ export function AppFooter() {
         <div className="mt-12 border-t border-zinc-800/80 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
           <p>© {new Date().getFullYear()} ICX Studios (LearnArk Technology Limited). All rights reserved.</p>
           <div className="flex items-center gap-6">
+            <Link href="/" className="font-semibold text-zinc-300 hover:text-white">
+              Home
+            </Link>
             <Link href="/account/security" className="hover:text-zinc-300">
               Account Security &amp; 2FA
             </Link>

@@ -157,17 +157,7 @@ export default function EquipmentRentalPage() {
       <div className="border-b border-zinc-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
-                <PackageCheck className="h-3 w-3" />
-                <span>Cinema &amp; Lighting Vault</span>
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-700">
-                <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                <span>Curated &amp; Posted Exclusively by ICX Executive Admin</span>
-              </span>
-            </div>
-            <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-950">
               Rent Insured Cinema &amp; Studio Equipment
             </h1>
             <p className="mt-2 max-w-2xl text-xs sm:text-sm text-zinc-600 leading-relaxed">
