@@ -150,7 +150,7 @@ export function TusFileUploader({
           throw new Error('Server did not return an upload Location header.');
         }
 
-        uploadUrl = location;
+        uploadUrl = new URL(location, window.location.origin).href;
         window.localStorage.setItem(getFingerprint(item.file), uploadUrl);
         updateItem(item.id, { uploadUrl });
       }

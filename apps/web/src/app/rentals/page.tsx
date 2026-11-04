@@ -26,7 +26,7 @@ const FALLBACK_GEAR_IMG =
   'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85';
 
 function getGearImage(photos?: string[]): string {
-  const valid = (photos || []).find((p) => p.startsWith('http'));
+  const valid = (photos || []).find((p) => typeof p === 'string' && (p.startsWith('http') || p.startsWith('/')));
   return valid || FALLBACK_GEAR_IMG;
 }
 
@@ -196,6 +196,9 @@ export default function EquipmentRentalPage() {
                     <img
                       src={imgUrl}
                       alt={item.name}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = FALLBACK_GEAR_IMG;
+                      }}
                       className="h-24 w-24 rounded-2xl object-cover shrink-0 bg-zinc-200"
                     />
                     <div className="min-w-0 flex-1">
@@ -240,6 +243,9 @@ export default function EquipmentRentalPage() {
                       <img
                         src={getGearImage(selectedItem.photos)}
                         alt={selectedItem.name}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = FALLBACK_GEAR_IMG;
+                        }}
                         className="h-full w-full object-cover"
                       />
                     </div>

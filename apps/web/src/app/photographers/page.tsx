@@ -53,7 +53,8 @@ const BANNED_NON_AFRICAN_IDS = [
 function getValidPortfolioUrls(urls?: string[]): string[] {
   const valid = (urls || []).filter(
     (u) =>
-      u.startsWith('http') &&
+      typeof u === 'string' &&
+      (u.startsWith('http') || u.startsWith('/')) &&
       !BANNED_NON_AFRICAN_IDS.some((badId) => u.includes(badId))
   );
   return valid.length > 0 ? valid : FALLBACK_PORTFOLIO;
@@ -229,6 +230,9 @@ export default function PhotographerDirectoryPage() {
                     <img
                       src={coverImg}
                       alt={photog.full_name}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = FALLBACK_PORTFOLIO[0];
+                      }}
                       className="h-20 w-20 rounded-2xl object-cover shrink-0 bg-zinc-200"
                     />
                     <div className="min-w-0 flex-1">
@@ -317,6 +321,9 @@ export default function PhotographerDirectoryPage() {
                     <img
                       src={activePortfolioImg || galleryUrls[0]}
                       alt={`${selectedPhotographer.full_name} Lookbook`}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = FALLBACK_PORTFOLIO[0];
+                      }}
                       className="h-full w-full object-cover transition-all duration-300"
                     />
                   </div>
@@ -335,6 +342,9 @@ export default function PhotographerDirectoryPage() {
                         <img
                           src={url}
                           alt={`Portfolio ${idx + 1}`}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = FALLBACK_PORTFOLIO[idx % FALLBACK_PORTFOLIO.length];
+                          }}
                           className="h-full w-full object-cover"
                         />
                       </button>

@@ -385,6 +385,46 @@ bookingsRouter.post(
   }
 );
 
+// DELETE /api/v1/bookings/photographer/slots/:slotId
+bookingsRouter.delete(
+  '/photographer/slots/:slotId',
+  requireAuth,
+  requireRole('photographer', 'admin'),
+  async (req: Request, res: Response): Promise<void> => {
+    const slotId = String(req.params.slotId || '');
+    try {
+      const profileRes = await query<{ id: string }>(
+        'SELECT id FROM photographer_profiles WHERE user_id = $1 LIMIT 1',
+        [req.user!.sub]
+      );
+      const profileId = profileRes.rows[0]?.id;
+      if (!profileId && req.user!.role !== 'admin') {
+        res.status(404).json({ error: 'PHOTOGRAPHER_PROFILE_NOT_FOUND' });
+        return;
+      }
+
+      const deleteRes = await query(
+        `DELETE FROM availability_slots
+         WHERE id = $1 AND status = 'free' ${req.user!.role !== 'admin' ? 'AND photographer_id = $2' : ''}
+         RETURNING id`,
+        req.user!.role !== 'admin' ? [slotId, profileId] : [slotId]
+      );
+
+      if (deleteRes.rowCount === 0) {
+        res.status(400).json({
+          error: 'SLOT_NOT_DELETABLE',
+          message: 'Slot cannot be removed because it is either booked, locked, or does not exist.',
+        });
+        return;
+      }
+
+      res.status(200).json({ success: true, deletedId: slotId });
+    } catch {
+      res.status(500).json({ error: 'DELETE_SLOT_FAILED' });
+    }
+  }
+);
+
 // POST /api/v1/bookings/:bookingId/respond (PB-04, PP-03: Accept or Decline)
 bookingsRouter.post(
   '/:bookingId/respond',

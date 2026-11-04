@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Camera, User, ArrowRight } from 'lucide-react';
+import { AlertCircle, Camera, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { AppNavbar } from '@/components/layout/AppNavbar';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { apiFetch, setStoredSession, ApiError } from '@/lib/api';
@@ -15,6 +15,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,15 +69,15 @@ export default function RegisterPage() {
                 />
               </div>
               <h2 className="text-2xl font-black tracking-tight leading-snug">
-                Built for Nigeria’s Leading Brands, Agencies &amp; Visual Creators.
+                Built for Leading Brands, Agencies &amp; Visual Creators.
               </h2>
               <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                Every new account receives an instant confirmation email from our studio server. Verify your email address to unlock full retouching, booking, and cinema rental privileges.
+                Create an account to book verified photographers, commission photo retouching, or rent cinema equipment across Lagos and Abuja.
               </p>
             </div>
 
-            <div className="border-t border-zinc-800 pt-5 text-xs text-zinc-400">
-              Instant Email Confirmation • Paystack Escrow Protection
+            <div className="border-t border-zinc-800 pt-5 text-xs text-zinc-500">
+              Lagos &amp; Abuja Creative House
             </div>
           </div>
 
@@ -179,15 +180,25 @@ export default function RegisterPage() {
                   <label className="block text-xs font-extrabold uppercase tracking-wider text-zinc-900">
                     Password
                   </label>
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="mt-1.5 block w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-4 py-3 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                    placeholder="Min 8 chars, uppercase, lowercase & digit"
-                  />
+                  <div className="relative mt-1.5">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      minLength={8}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="block w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-4 py-3 pr-11 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                      placeholder="Min 8 chars, uppercase, lowercase & digit"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-700 focus:outline-none"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <button

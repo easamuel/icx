@@ -23,6 +23,31 @@ import { apiFetch, getStoredAccessToken } from '@/lib/api';
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
+const DEFAULT_GEAR_IMG =
+  'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85';
+
+const DEFAULT_PHOTOG_IMG =
+  'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=1000&q=85';
+
+function formatAdminDateTime(iso: string, endIso?: string) {
+  try {
+    const s = new Date(iso);
+    const dateStr = s.toLocaleDateString('en-NG', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    const startTime = s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!endIso) return `${dateStr} at ${startTime}`;
+    const e = new Date(endIso);
+    const endTime = e.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${dateStr} • ${startTime} – ${endTime}`;
+  } catch {
+    return iso;
+  }
+}
+
 type AdminTab =
   | 'overview'
   | 'users'
@@ -600,8 +625,7 @@ export default function AdminExecutiveDashboardPage() {
                       <strong>{b.photographer_name}</strong>
                     </p>
                     <p className="text-xs text-zinc-500">
-                      Session Window: {new Date(b.start_time).toLocaleString()} →{' '}
-                      {new Date(b.end_time).toLocaleString()}
+                      Session Window: {formatAdminDateTime(b.start_time, b.end_time)}
                     </p>
                   </div>
 
@@ -710,17 +734,29 @@ export default function AdminExecutiveDashboardPage() {
                 key={p.id}
                 className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base font-black text-zinc-950">{p.full_name}</span>
-                    <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white">
-                      {p.approval_status}
-                    </span>
+                <div className="flex items-start gap-4 min-w-0 flex-1">
+                  <div className="h-16 w-16 rounded-2xl overflow-hidden bg-zinc-200 shrink-0 border border-zinc-200 shadow-sm">
+                    <img
+                      src={p.avatar_url || (Array.isArray(p.portfolio_urls) && p.portfolio_urls[0]) || DEFAULT_PHOTOG_IMG}
+                      alt={p.full_name}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = DEFAULT_PHOTOG_IMG;
+                      }}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
-                  <p className="mt-1 text-xs font-semibold text-zinc-500">
-                    {p.email} • {p.location || 'Lagos, Nigeria'}
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-600">{p.bio}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-black text-zinc-950 truncate">{p.full_name}</span>
+                      <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white shrink-0">
+                        {p.approval_status}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs font-semibold text-zinc-500">
+                      {p.email} • {p.location || 'Lagos, Nigeria'}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-600 line-clamp-2">{p.bio}</p>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -832,17 +868,81 @@ export default function AdminExecutiveDashboardPage() {
                   </select>
                 </div>
 
-                <div className="sm:col-span-12">
-                  <label className="block text-xs font-extrabold text-zinc-900">
-                    Equipment Product Photo URL (HTTPS)
-                  </label>
-                  <input
-                    type="url"
-                    value={newEquipPhotoUrl}
-                    onChange={(e) => setNewEquipPhotoUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85"
-                    className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                  />
+                <div className="sm:col-span-12 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-1">
+                    <label className="block text-xs font-extrabold text-zinc-900">
+                      Equipment Product Photo URL (Live HTTPS)
+                    </label>
+                    <div className="flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewEquipName('ARRI Alexa Mini LF 4.5K Large Format Package');
+                          setNewEquipDailyNgn('185000');
+                          setNewEquipPhotoUrl('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85');
+                          setNewEquipDesc('ARRI Alexa Mini LF body, LPL mount, EF adapter, Codex Compact Drive reader, Bebob V-mount cage, Arri viewfinder, Pelican flight case.');
+                        }}
+                        className="rounded-lg bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 text-[10px] font-bold text-zinc-800"
+                      >
+                        Preset: ARRI LF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewEquipName('RED V-Raptor 8K VV Cinema Production Pack');
+                          setNewEquipDailyNgn('150000');
+                          setNewEquipPhotoUrl('https://images.unsplash.com/photo-1502920917128-1aa500764cbd?auto=format&fit=crop&w=1000&q=85');
+                          setNewEquipDesc('RED V-Raptor 8K multi-format sensor, Canon RF mount, 2TB RED PRO CFexpress, DSMC3 monitor, dual Anton Bauer Titon batteries.');
+                        }}
+                        className="rounded-lg bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 text-[10px] font-bold text-zinc-800"
+                      >
+                        Preset: RED Raptor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewEquipName('Sony FX6 Full-Frame Cinema Camera Kit');
+                          setNewEquipDailyNgn('85000');
+                          setNewEquipPhotoUrl('https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1000&q=85');
+                          setNewEquipDesc('Sony FX6 4K full-frame sensor, top handle with XLR inputs, LCD monitor, 2x 160GB CFexpress Type A cards, BP-U batteries.');
+                        }}
+                        className="rounded-lg bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 text-[10px] font-bold text-zinc-800"
+                      >
+                        Preset: Sony FX6
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewEquipName('Profoto B10X Plus 500Ws Studio Flash Duo');
+                          setNewEquipDailyNgn('60000');
+                          setNewEquipPhotoUrl('https://images.unsplash.com/photo-1512790182412-b19e6d62bc39?auto=format&fit=crop&w=1000&q=85');
+                          setNewEquipDesc('Two Profoto B10X Plus 500Ws battery-powered heads, Air Remote TTL-C/N/S, 2x OCF speedrings, 2x softboxes, stands, and backpack.');
+                        }}
+                        className="rounded-lg bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 text-[10px] font-bold text-zinc-800"
+                      >
+                        Preset: Profoto Kit
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 items-center">
+                    <input
+                      type="url"
+                      value={newEquipPhotoUrl}
+                      onChange={(e) => setNewEquipPhotoUrl(e.target.value)}
+                      placeholder="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85"
+                      className="w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                    />
+                    <div className="h-10 w-10 shrink-0 rounded-xl overflow-hidden border border-zinc-300 bg-zinc-100 flex items-center justify-center shadow-sm">
+                      <img
+                        src={newEquipPhotoUrl.trim() || DEFAULT_GEAR_IMG}
+                        alt="Preview"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = DEFAULT_GEAR_IMG;
+                        }}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="sm:col-span-12">
@@ -882,20 +982,34 @@ export default function AdminExecutiveDashboardPage() {
                     className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 space-y-3 flex flex-col justify-between"
                   >
                     <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="text-sm font-black text-zinc-950">{item.name}</div>
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase shrink-0 ${
-                            item.active
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-zinc-200 text-zinc-600'
-                          }`}
-                        >
-                          {item.active ? 'Live' : 'Hidden'}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-xs font-semibold text-zinc-500">
-                        {formatNaira(item.daily_price)}/day • {item.total_units} total units
+                      <div className="flex gap-3 items-center">
+                        <div className="h-16 w-16 rounded-xl overflow-hidden bg-zinc-200 shrink-0 border border-zinc-200 shadow-sm">
+                          <img
+                            src={(Array.isArray(item.photos) && item.photos[0]) || (typeof item.photos === 'string' ? item.photos : DEFAULT_GEAR_IMG)}
+                            alt={item.name}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = DEFAULT_GEAR_IMG;
+                            }}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="text-sm font-black text-zinc-950 truncate leading-snug">{item.name}</div>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase shrink-0 ${
+                                item.active
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-zinc-200 text-zinc-600'
+                              }`}
+                            >
+                              {item.active ? 'Live' : 'Hidden'}
+                            </span>
+                          </div>
+                          <div className="mt-1 text-xs font-semibold text-zinc-500">
+                            {formatNaira(item.daily_price)}/day • {item.total_units} units
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div className="space-y-2 pt-3 border-t border-zinc-200">
@@ -952,8 +1066,7 @@ export default function AdminExecutiveDashboardPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs font-medium text-zinc-600">
-                      Dates: {String(r.start_date).slice(0, 10)} →{' '}
-                      {String(r.end_date).slice(0, 10)} • Producer: {r.customer_name} (
+                      Dates: {formatAdminDateTime(r.start_date, r.end_date)} • Producer: {r.customer_name} (
                       {r.customer_phone})
                     </p>
                   </div>

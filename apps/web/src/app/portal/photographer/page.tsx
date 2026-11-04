@@ -10,6 +10,8 @@ import {
   UploadCloud,
   AlertCircle,
   Camera,
+  Trash2,
+  Clock,
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import { AppNavbar } from '@/components/layout/AppNavbar';
@@ -60,6 +62,24 @@ interface PhotographerWorkspaceData {
   };
 }
 
+function formatSlotDate(startIso: string, endIso?: string) {
+  try {
+    const s = new Date(startIso);
+    const dateStr = s.toLocaleDateString('en-NG', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+    const startTime = s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!endIso) return `${dateStr} at ${startTime}`;
+    const e = new Date(endIso);
+    const endTime = e.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${dateStr} • ${startTime} – ${endTime}`;
+  } catch {
+    return startIso;
+  }
+}
+
 export default function PhotographerPortalPage() {
   const [data, setData] = useState<PhotographerWorkspaceData | null>(null);
   const [slotStart, setSlotStart] = useState('');
@@ -107,15 +127,47 @@ export default function PhotographerPortalPage() {
     }
   }
 
+  function setSlotDuration(hours: number) {
+    if (!slotStart) {
+      const now = new Date();
+      now.setMinutes(0, 0, 0);
+      now.setHours(now.getHours() + 2);
+      const startIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const endObj = new Date(now.getTime() + hours * 3600000);
+      const endIso = new Date(endObj.getTime() - endObj.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setSlotStart(startIso);
+      setSlotEnd(endIso);
+    } else {
+      const start = new Date(slotStart);
+      const endObj = new Date(start.getTime() + hours * 3600000);
+      const endIso = new Date(endObj.getTime() - endObj.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setSlotEnd(endIso);
+    }
+  }
+
   async function handleAddSlot(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!slotStart || !slotEnd) {
+      setError('Please select both start and end times for the slot.');
+      return;
+    }
+    const start = new Date(slotStart);
+    const end = new Date(slotEnd);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      setError('Invalid date format.');
+      return;
+    }
+    if (end <= start) {
+      setError('Slot end time must be after start time.');
+      return;
+    }
     try {
       await apiFetch('/bookings/photographer/slots', {
         method: 'POST',
         body: JSON.stringify({
-          start_time: new Date(slotStart).toISOString(),
-          end_time: new Date(slotEnd).toISOString(),
+          start_time: start.toISOString(),
+          end_time: end.toISOString(),
         }),
       });
       setSlotStart('');
@@ -123,6 +175,18 @@ export default function PhotographerPortalPage() {
       await loadWorkspace();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to publish availability slot.');
+    }
+  }
+
+  async function handleDeleteSlot(slotId: string) {
+    setError(null);
+    try {
+      await apiFetch(`/bookings/photographer/slots/${slotId}`, {
+        method: 'DELETE',
+      });
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to remove availability slot.');
     }
   }
 
@@ -257,7 +321,7 @@ export default function PhotographerPortalPage() {
                             {b.service_title} — Client: {b.customer_name}
                           </span>
                           <p className="text-xs font-medium text-zinc-600 mt-1">
-                            Slot: {new Date(b.start_time).toLocaleString()} • Gross:{' '}
+                            Slot: {formatSlotDate(b.start_time, b.end_time)} • Gross:{' '}
                             <strong>{formatNaira(b.price)}</strong> (Commission {b.commission_rate}%:{' '}
                             {formatNaira(b.commission_amount)})
                           </p>
@@ -331,7 +395,7 @@ export default function PhotographerPortalPage() {
                   </h2>
                 </div>
 
-                <form onSubmit={handleAddSlot} className="space-y-3">
+                <form onSubmit={handleAddSlot} className="space-y-4">
                   <div>
                     <label className="block text-xs font-extrabold text-zinc-900">
                       Start Date &amp; Time
@@ -341,24 +405,51 @@ export default function PhotographerPortalPage() {
                       required
                       value={slotStart}
                       onChange={(e) => setSlotStart(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950"
+                      className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
                     />
                   </div>
+
                   <div>
-                    <label className="block text-xs font-extrabold text-zinc-900">
-                      End Date &amp; Time
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-extrabold text-zinc-900">
+                        End Date &amp; Time
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSlotDuration(2)}
+                          className="rounded-lg bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-200"
+                        >
+                          +2h
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSlotDuration(4)}
+                          className="rounded-lg bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-200"
+                        >
+                          +4h
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSlotDuration(8)}
+                          className="rounded-lg bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-200"
+                        >
+                          Full Day
+                        </button>
+                      </div>
+                    </div>
                     <input
                       type="datetime-local"
                       required
                       value={slotEnd}
                       onChange={(e) => setSlotEnd(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950"
+                      className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
                     />
                   </div>
+
                   <button
                     type="submit"
-                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-zinc-950 py-3 text-xs font-black text-white shadow"
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-zinc-950 py-3 text-xs font-black text-white shadow hover:bg-zinc-800 transition-colors"
                   >
                     <Plus className="h-4 w-4" />
                     <span>Publish Open Slot</span>
@@ -369,17 +460,43 @@ export default function PhotographerPortalPage() {
                   <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
                     Published Slots ({data.slots.length})
                   </h3>
-                  {data.slots.map((s) => (
-                    <div
-                      key={s.id}
-                      className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs font-semibold"
-                    >
-                      <span>{new Date(s.start_time).toLocaleString()}</span>
-                      <span className="uppercase font-black text-[10px] px-2.5 py-0.5 rounded-full bg-zinc-950 text-white">
-                        {s.status}
-                      </span>
-                    </div>
-                  ))}
+                  {data.slots.length === 0 ? (
+                    <p className="text-xs text-zinc-500">No open slots published yet.</p>
+                  ) : (
+                    data.slots.map((s) => (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs font-semibold gap-2"
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Clock className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                          <span className="truncate">{formatSlotDate(s.start_time, s.end_time)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`uppercase font-black text-[10px] px-2.5 py-0.5 rounded-full ${
+                              s.status === 'free'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-zinc-950 text-white'
+                            }`}
+                          >
+                            {s.status}
+                          </span>
+                          {s.status === 'free' && (
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteSlot(s.id)}
+                              className="p-1 text-zinc-400 hover:text-red-600 transition-colors"
+                              title="Delete Slot"
+                              aria-label="Delete Slot"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

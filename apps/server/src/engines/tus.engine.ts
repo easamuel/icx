@@ -368,8 +368,7 @@ export async function handleTusCreate(req: Request, res: Response): Promise<void
   await fsp.writeFile(getMetaFilePath(uploadId), JSON.stringify(meta, null, 2), 'utf8');
   await fsp.writeFile(getBinaryFilePath(uploadId), Buffer.alloc(0));
 
-  const proto = (req.headers['x-forwarded-proto'] as string)?.split(',')[0]?.trim() || req.protocol;
-  const location = `${proto}://${req.get('host')}/api/v1/uploads/tus/${uploadId}`;
+  const location = `/api/v1/uploads/tus/${uploadId}`;
   res.setHeader('Location', location);
   res.setHeader('Upload-Offset', '0');
   res.status(201).end();
