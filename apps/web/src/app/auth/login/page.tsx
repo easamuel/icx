@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { AppNavbar } from '@/components/layout/AppNavbar';
 import { AppFooter } from '@/components/layout/AppFooter';
-import { apiFetch, setStoredSession, ApiError } from '@/lib/api';
+import { apiFetch, setStoredSession, clearStoredSession, ApiError } from '@/lib/api';
 
 interface LoginResponse {
   requiresTwoFactor?: boolean;
