@@ -112,7 +112,6 @@ export function AppNavbar() {
                 href="/account/security"
                 className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:border-zinc-600 transition-colors"
               >
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 <span className="max-w-[140px] truncate">{user.full_name}</span>
               </Link>
               <button
@@ -140,7 +139,7 @@ export function AppNavbar() {
                 href="/auth/register"
                 className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold transition-all ${
                   pathname === '/auth/register'
-                    ? 'bg-emerald-400 text-zinc-950'
+                    ? 'bg-zinc-200 text-zinc-950'
                     : 'bg-white text-zinc-950 hover:bg-zinc-200'
                 }`}
               >

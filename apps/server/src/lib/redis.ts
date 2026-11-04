@@ -22,6 +22,7 @@ export const RedisKeys = {
   accountLockout: (email: string) => `icx:auth:lockout:${email.toLowerCase()}`,
   emailVerificationToken: (token: string) => `icx:auth:verify_email:${token}`,
   passwordResetToken: (token: string) => `icx:auth:pwd_reset:${token}`,
+  staffInviteToken: (token: string) => `icx:auth:staff_invite:${token}`,
   rateLimit: (scope: string, identifier: string) => `icx:rl:${scope}:${identifier}`,
   slotHoldTTL: (slotId: string) => `icx:hold:slot:${slotId}`,
   rentalHoldTTL: (rentalId: string) => `icx:hold:rental:${rentalId}`,

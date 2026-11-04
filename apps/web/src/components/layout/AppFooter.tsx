@@ -31,7 +31,7 @@ export function AppFooter() {
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-3.5 w-3.5 text-white shrink-0" />
-                <span>concierge@icxora.com</span>
+                <span>support@icxora.com</span>
               </div>
             </div>
           </div>
@@ -88,7 +88,7 @@ export function AppFooter() {
               </li>
               <li>
                 <Link href="/support" className="hover:text-white transition-colors">
-                  Support &amp; Concierge
+                  Support &amp; Help Desk
                 </Link>
               </li>
               <li>

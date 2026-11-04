@@ -58,13 +58,13 @@ export default function GlobalErrorPage({
               <span>Return Home</span>
             </Link>
             <a
-              href="https://wa.me/2348010000001?text=Hello%20ICX%20Concierge%2C%20I%20encountered%20an%20error%20on%20the%20platform."
+              href="https://wa.me/2348010000001?text=Hello%20ICX%20Support%2C%20I%20encountered%20an%20error%20on%20the%20platform."
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-6 py-3 text-xs font-black text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
             >
               <MessageSquare className="h-4 w-4 text-emerald-500" />
-              <span>Contact Concierge</span>
+              <span>Contact Support</span>
             </a>
           </div>
         </div>
@@ -74,3 +74,4 @@ export default function GlobalErrorPage({
     </div>
   );
 }
+

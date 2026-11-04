@@ -269,7 +269,7 @@ export default function PrivacyPolicyPage() {
               href="/support"
               className="inline-flex items-center gap-2 text-xs font-black text-zinc-900 hover:text-zinc-600 transition-colors"
             >
-              <span>Contact Support &amp; Concierge</span>
+              <span>Contact Support Desk</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>

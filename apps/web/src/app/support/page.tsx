@@ -38,7 +38,7 @@ export default function SupportPage() {
       category: 'Photo Retouching',
       question: 'What is the standard turnaround time for photo retouching orders?',
       answer:
-        'Standard retouching orders are delivered within 24 to 48 hours for standard portrait and fashion sets. Rush production (under 12 hours) is available upon request through the Studio Concierge. High-volume commercial lookbooks and campaign rolls are scheduled according to frame count.',
+        'Standard retouching orders are delivered within 24 to 48 hours for standard portrait and fashion sets. Rush production (under 12 hours) is available upon request through the Studio Support. High-volume commercial lookbooks and campaign rolls are scheduled according to frame count.',
     },
     {
       category: 'Photo Retouching',
@@ -93,7 +93,7 @@ export default function SupportPage() {
           <div className="text-center max-w-3xl mx-auto space-y-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3.5 py-1 text-xs font-bold text-zinc-800 shadow-xs">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Dedicated Studio Concierge &amp; Help Desk</span>
+              <span>Dedicated Studio Support &amp; Help Desk</span>
             </div>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-zinc-950">
               How Can We Help You?
@@ -105,9 +105,9 @@ export default function SupportPage() {
 
           {/* Quick Contact Cards */}
           <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
-            {/* Card 1: WhatsApp Concierge */}
+            {/* Card 1: WhatsApp Support */}
             <a
-              href="https://wa.me/2348010000001?text=Hello%20ICX%20Studios%20Concierge%2C%20I%20need%20assistance%20with%20my%20project."
+              href="https://wa.me/2348010000001?text=Hello%20ICX%20Studios%20Support%2C%20I%20need%20assistance%20with%20my%20project."
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm hover:border-zinc-950 hover:shadow-md transition-all group flex flex-col justify-between"
@@ -117,7 +117,7 @@ export default function SupportPage() {
                   <MessageSquare className="h-6 w-6" />
                 </div>
                 <h3 className="text-base font-black text-zinc-950 group-hover:text-emerald-700 transition-colors">
-                  WhatsApp Concierge
+                  WhatsApp Support
                 </h3>
                 <p className="text-xs text-zinc-600 leading-relaxed">
                   Real-time direct chat with our production desk for booking adjustments, rush edits, or vault pickup coordinations.
@@ -178,7 +178,7 @@ export default function SupportPage() {
             <div className="lg:col-span-5 rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
               <div>
                 <h2 className="text-xl font-black text-zinc-950">
-                  Send a Concierge Inquiry
+                  Send a Support Inquiry
                 </h2>
                 <p className="mt-1 text-xs text-zinc-600">
                   Our operations team typically responds within 30 minutes during studio hours.
@@ -194,7 +194,7 @@ export default function SupportPage() {
                     Message Received
                   </h3>
                   <p className="text-xs text-emerald-800 leading-relaxed">
-                    Thank you, <strong>{formData.name || 'Client'}</strong>. Our production concierge has received your request and will reach out to <strong>{formData.email}</strong> shortly.
+                    Thank you, <strong>{formData.name || 'Client'}</strong>. Our support desk has received your request and will reach out to <strong>{formData.email}</strong> shortly.
                   </p>
                   <button
                     type="button"
@@ -289,7 +289,7 @@ export default function SupportPage() {
                     className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 px-6 py-3 text-xs font-black text-white hover:bg-zinc-800 transition-colors shadow-sm cursor-pointer"
                   >
                     <Send className="h-3.5 w-3.5" />
-                    <span>Send Message to Concierge</span>
+                    <span>Send Message to Support</span>
                   </button>
                 </form>
               )}

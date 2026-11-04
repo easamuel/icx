@@ -1,7 +1,10 @@
 import { Router, type Request, type Response } from 'express';
 import { query, withTransaction, recordAuditEvent } from '@icx/database';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-import { dispatchNotification } from '../engines/notification.engine.js';
+import {
+  dispatchNotification,
+  buildStudioEmailTemplate,
+} from '../engines/notification.engine.js';
 
 export const adminRouter = Router();
 
@@ -532,6 +535,52 @@ adminRouter.patch('/users/:userId', async (req: Request, res: Response): Promise
     );
   }
 
+  const targetUser = updated.rows[0];
+
+  if (role && targetUser) {
+    const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
+    const portalUrl =
+      role === 'photographer'
+        ? `${webUrl}/portal/photographer`
+        : role === 'editor'
+        ? `${webUrl}/workspace/editor`
+        : role === 'admin'
+        ? `${webUrl}/admin`
+        : `${webUrl}/dashboard`;
+
+    const roleName =
+      role === 'photographer'
+        ? 'Photographer'
+        : role === 'editor'
+        ? 'Senior Retoucher'
+        : role === 'admin'
+        ? 'Administrator'
+        : 'Client';
+
+    void dispatchNotification({
+      triggerId: 'NT-ROLE-UPGRADE',
+      recipientEmail: targetUser.email,
+      recipientUserId: targetUser.id,
+      subject: `Your ICX Studios Account Has Been Upgraded to ${roleName}`,
+      htmlBody: buildStudioEmailTemplate({
+        heading: 'Account Status Upgraded',
+        subheading: `Your account role has been elevated to ${roleName}.`,
+        bodyHtml: `
+          <p style="margin:0 0 14px;">Hello ${targetUser.full_name},</p>
+          <p style="margin:0 0 14px;">An administrator has upgraded your ICX Studios account permissions to <strong>${roleName}</strong>.</p>
+          <p style="margin:0 0 14px;">You now have full access to your specialized studio workspace, tools, and operational features.</p>
+        `,
+        ctaLabel: role === 'photographer' ? 'Open Photographer Portal' : 'Access Your Studio Workspace',
+        ctaUrl: portalUrl,
+        footerNote: 'If you have any questions about your account permissions, please contact support@icxora.com.',
+      }),
+      targetEntity: 'users',
+      targetId: targetUser.id,
+    }).catch((err) => {
+      console.error('[ICX-ADMIN] Failed to send upgrade notification:', err);
+    });
+  }
+
   await recordAuditEvent({
     actorId: req.user!.sub,
     action: 'ADMIN_USER_MODIFIED',
@@ -540,7 +589,7 @@ adminRouter.patch('/users/:userId', async (req: Request, res: Response): Promise
     details: { role, status, verify_email },
   });
 
-  res.status(200).json({ user: updated.rows[0] });
+  res.status(200).json({ user: targetUser });
 });
 
 adminRouter.get('/bookings', async (_req: Request, res: Response): Promise<void> => {

@@ -15,7 +15,8 @@ export type NotificationTriggerId =
   | 'NT-08' // Rental return reminder, 1 day before end date (Customer)
   | 'NT-AUTH-VERIFY' // Account registration email confirmation
   | 'NT-AUTH-RESET' // Password reset email
-  | 'NT-AUTH-INVITE'; // Admin staff invitation email
+  | 'NT-AUTH-INVITE' // Admin staff invitation email
+  | 'NT-ROLE-UPGRADE'; // User role upgraded email notification
 
 interface DispatchNotificationParams {
   triggerId: NotificationTriggerId;
@@ -93,7 +94,7 @@ export function buildStudioEmailTemplate(options: {
           <tr>
             <td style="background-color: #FAFAFA; border-top: 1px solid #E4E4E7; padding: 20px 32px; font-size: 12px; color: #71717A;">
               <strong>ICX Studios Limited</strong> • Victoria Island &amp; Lekki Phase 1, Lagos • Maitama, Abuja<br/>
-              <a href="https://icxora.com" style="color: #09090B; text-decoration: none; font-weight: 600;">icxora.com</a> • concierge@icxora.com
+              <a href="https://icxora.com" style="color: #09090B; text-decoration: none; font-weight: 600;">icxora.com</a> • support@icxora.com
             </td>
           </tr>
         </table>

@@ -39,7 +39,7 @@ export default function NotFound() {
               className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-6 py-3 text-xs font-black text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
             >
               <MessageSquare className="h-4 w-4 text-emerald-500" />
-              <span>Ask Concierge</span>
+              <span>Ask Support</span>
             </a>
           </div>
 
@@ -95,3 +95,4 @@ export default function NotFound() {
     </div>
   );
 }
+

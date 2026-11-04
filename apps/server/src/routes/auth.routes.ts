@@ -817,17 +817,29 @@ authRouter.post(
     }
 
     const { email, full_name, phone, role } = parsed.data;
-    const temporaryPassword = `Icx#${crypto.randomBytes(6).toString('hex')}!`;
-    const passwordHash = await argon2.hash(temporaryPassword, {
+
+    const existing = await query<UserRecord>(
+      'SELECT id FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    );
+    if (existing.rows[0]) {
+      res.status(409).json({
+        error: 'USER_ALREADY_EXISTS',
+        message: 'A user with this email address already exists in the system.',
+      });
+      return;
+    }
+
+    const placeholderHash = await argon2.hash(crypto.randomBytes(32).toString('hex'), {
       type: argon2.argon2id,
     });
 
     const created = await withTransaction(async (client) => {
       const insertRes = await client.query<UserRecord>(
-        `INSERT INTO users (email, password_hash, role, phone, full_name, status, email_verified_at)
-         VALUES ($1, $2, $3, $4, $5, 'active', NOW())
+        `INSERT INTO users (email, password_hash, role, phone, full_name, status)
+         VALUES ($1, $2, $3, $4, $5, 'active')
          RETURNING id, email, role, full_name, phone, status, created_at`,
-        [email, passwordHash, role, phone, full_name]
+        [email, placeholderHash, role, phone, full_name]
       );
       const staff = insertRes.rows[0]!;
 
@@ -844,26 +856,45 @@ authRouter.post(
       return staff;
     });
 
+    const inviteToken = crypto.randomBytes(32).toString('hex');
+    await redis.set(
+      RedisKeys.staffInviteToken(inviteToken),
+      created.id,
+      'EX',
+      259200 // 72 hours
+    );
+
     const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
+    const acceptInviteUrl = `${webUrl}/auth/accept-invite?token=${inviteToken}`;
+
+    const roleName =
+      created.role === 'admin'
+        ? 'Executive Administrator'
+        : created.role === 'editor'
+        ? 'Senior Retoucher & Editor'
+        : created.role === 'photographer'
+        ? 'Studio Photographer'
+        : 'Team Member';
+
     void dispatchNotification({
       triggerId: 'NT-AUTH-INVITE',
       recipientEmail: created.email,
       recipientUserId: created.id,
-      subject: `You Have Been Invited to ICX Studios (${created.role.toUpperCase()})`,
+      subject: `Invitation to Join ICX Studios (${roleName})`,
       htmlBody: buildStudioEmailTemplate({
         heading: `Welcome to the ICX Studios Team, ${created.full_name}.`,
-        subheading: `An administrator has provisioned your ${created.role} workspace account.`,
+        subheading: `You have been officially invited to join ICX Studios as a ${roleName}.`,
         bodyHtml: `
-          <p style="margin:0 0 14px;">Sign in to your ICX Studios workspace using the credentials below:</p>
+          <p style="margin:0 0 14px;">An administrator has provisioned your studio access. To activate your workspace and set your private confidential password, click the button below:</p>
           <div style="background:#F4F4F5;border:1px solid #E4E4E7;border-radius:10px;padding:14px 16px;font-size:13px;color:#09090B;margin-bottom:16px;">
-            <div style="margin-bottom:6px;"><strong>Email:</strong> ${created.email}</div>
-            <div style="margin-bottom:6px;"><strong>Temporary Password:</strong> <code style="font-family:monospace;">${temporaryPassword}</code></div>
-            <div><strong>Assigned Role:</strong> ${created.role.toUpperCase()}</div>
+            <div style="margin-bottom:6px;"><strong>Work Email:</strong> ${created.email}</div>
+            <div><strong>Assigned Position:</strong> ${roleName}</div>
           </div>
-          <p style="margin:0;">After signing in, please enable Two-Factor Authentication (2FA) under Account Security.</p>
+          <p style="margin:0;font-size:13px;color:#71717A;">For security, ICX Studios never transmits account passwords over email. This activation link expires in 72 hours.</p>
         `,
-        ctaLabel: 'Sign In to Workspace',
-        ctaUrl: `${webUrl}/auth/login`,
+        ctaLabel: 'Set Your Password & Activate Account',
+        ctaUrl: acceptInviteUrl,
+        footerNote: 'If you were not expecting this invitation, please disregard this email or contact support@icxora.com.',
       }),
       targetEntity: 'users',
       targetId: created.id,
@@ -871,7 +902,133 @@ authRouter.post(
 
     res.status(201).json({
       staff: created,
-      temporaryPassword,
+      inviteToken: env.NODE_ENV !== 'production' ? inviteToken : undefined,
+    });
+  }
+);
+
+// ============================================================================
+// GET /api/v1/auth/invite-details (Inspect invitation token before setting password)
+// ============================================================================
+authRouter.get(
+  '/invite-details',
+  async (req: Request, res: Response): Promise<void> => {
+    const token = String(req.query.token || '').trim();
+    if (!token) {
+      res.status(400).json({ error: 'MISSING_TOKEN', message: 'Invitation token is required.' });
+      return;
+    }
+
+    const userId = await redis.get(RedisKeys.staffInviteToken(token));
+    if (!userId) {
+      res.status(404).json({
+        valid: false,
+        error: 'INVALID_OR_EXPIRED_TOKEN',
+        message: 'This invitation link is invalid or has expired. Please contact your studio administrator for a new invitation.',
+      });
+      return;
+    }
+
+    const userRes = await query<UserRecord>(
+      'SELECT id, email, full_name, role FROM users WHERE id = $1 LIMIT 1',
+      [userId]
+    );
+    const user = userRes.rows[0];
+    if (!user) {
+      res.status(404).json({
+        valid: false,
+        error: 'USER_NOT_FOUND',
+        message: 'Associated user account could not be found.',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      valid: true,
+      email: user.email,
+      fullName: user.full_name,
+      role: user.role,
+    });
+  }
+);
+
+// ============================================================================
+// POST /api/v1/auth/accept-invite (Invited staff sets their private password)
+// ============================================================================
+authRouter.post(
+  '/accept-invite',
+  rateLimiter({ scope: 'accept_invite', windowSeconds: 300, maxRequests: 5 }),
+  async (req: Request, res: Response): Promise<void> => {
+    const token = String(req.body?.token || '').trim();
+    const password = String(req.body?.password || '');
+
+    if (!token) {
+      res.status(400).json({ error: 'MISSING_TOKEN', message: 'Invitation token is required.' });
+      return;
+    }
+
+    if (password.length < 8) {
+      res.status(400).json({
+        error: 'WEAK_PASSWORD',
+        message: 'Password must be at least 8 characters long.',
+      });
+      return;
+    }
+
+    const userId = await redis.get(RedisKeys.staffInviteToken(token));
+    if (!userId) {
+      res.status(400).json({
+        error: 'INVALID_OR_EXPIRED_TOKEN',
+        message: 'This invitation token is invalid or has expired. Please contact your administrator for a new link.',
+      });
+      return;
+    }
+
+    const userRes = await query<UserRecord>(
+      'SELECT id, email, full_name, role, status FROM users WHERE id = $1 LIMIT 1',
+      [userId]
+    );
+    const user = userRes.rows[0];
+    if (!user) {
+      res.status(404).json({ error: 'USER_NOT_FOUND', message: 'User account not found.' });
+      return;
+    }
+
+    const passwordHash = await argon2.hash(password, {
+      type: argon2.argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 4,
+    });
+
+    const updatedRes = await query<UserRecord>(
+      `UPDATE users
+       SET password_hash = $1,
+           email_verified_at = COALESCE(email_verified_at, NOW()),
+           updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, email, role, phone, full_name, two_factor_enabled, status, email_verified_at, created_at, updated_at`,
+      [passwordHash, userId]
+    );
+    const updatedUser = updatedRes.rows[0]!;
+
+    await redis.del(RedisKeys.staffInviteToken(token));
+
+    await recordAuditEvent({
+      actorId: user.id,
+      action: 'STAFF_INVITATION_ACCEPTED',
+      targetEntity: 'users',
+      targetId: user.id,
+      details: { role: user.role },
+    });
+
+    const { accessToken, refreshToken } = await issueTokenPair(updatedUser);
+    setRefreshCookie(res, refreshToken);
+
+    res.status(200).json({
+      status: 'invitation_accepted',
+      user: updatedUser,
+      accessToken,
     });
   }
 );

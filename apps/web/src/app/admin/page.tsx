@@ -21,6 +21,9 @@ import {
   Search,
   LayoutDashboard,
   ArrowRight,
+  UploadCloud,
+  ImagePlus,
+  Trash2,
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import { IcxLogo } from '@/components/brand/IcxLogo';
@@ -62,8 +65,7 @@ type AdminTab =
   | 'jobs'
   | 'photographers'
   | 'equipment'
-  | 'config'
-  | 'audit';
+  | 'config';
 
 export default function AdminExecutiveDashboardPage() {
   const router = useRouter();
@@ -78,7 +80,6 @@ export default function AdminExecutiveDashboardPage() {
   const [photographers, setPhotographers] = useState<Array<Record<string, any>>>([]);
   const [equipment, setEquipment] = useState<Array<Record<string, any>>>([]);
   const [rentals, setRentals] = useState<Array<Record<string, any>>>([]);
-  const [auditLogs, setAuditLogs] = useState<Array<Record<string, any>>>([]);
   const [depositPct, setDepositPct] = useState(70);
   const [commissionRate, setCommissionRate] = useState(15);
   const [watermarkOpacity, setWatermarkOpacity] = useState(0.45);
@@ -92,6 +93,8 @@ export default function AdminExecutiveDashboardPage() {
   const [newEquipDailyNgn, setNewEquipDailyNgn] = useState('85000');
   const [newEquipUnits, setNewEquipUnits] = useState('2');
   const [newEquipPhotoUrl, setNewEquipPhotoUrl] = useState('');
+  const [equipPhotoFileName, setEquipPhotoFileName] = useState('');
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [newEquipCondition, setNewEquipCondition] = useState<'excellent' | 'good' | 'fair'>('excellent');
   const [postingEquip, setPostingEquip] = useState(false);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
@@ -124,7 +127,7 @@ export default function AdminExecutiveDashboardPage() {
 
   const loadAdminData = useCallback(async () => {
     try {
-      const [ov, us, bk, jb, ph, eq, au] = await Promise.all([
+      const [ov, us, bk, jb, ph, eq] = await Promise.all([
         apiFetch<Record<string, any>>('/admin/overview'),
         apiFetch<{ users: Array<Record<string, any>> }>('/admin/users'),
         apiFetch<{ bookings: Array<Record<string, any>> }>('/admin/bookings'),
@@ -134,7 +137,6 @@ export default function AdminExecutiveDashboardPage() {
           equipment: Array<Record<string, any>>;
           rentals: Array<Record<string, any>>;
         }>('/admin/equipment'),
-        apiFetch<{ auditLogs: Array<Record<string, any>> }>('/admin/audit-logs'),
       ]);
 
       setOverview(ov);
@@ -144,7 +146,6 @@ export default function AdminExecutiveDashboardPage() {
       setPhotographers(ph.photographers);
       setEquipment(eq.equipment);
       setRentals(eq.rentals);
-      setAuditLogs(au.auditLogs);
 
       if (ov.platformSettings?.pricing_config) {
         setDepositPct(Number(ov.platformSettings.pricing_config.deposit_percentage ?? 70));
@@ -235,6 +236,7 @@ export default function AdminExecutiveDashboardPage() {
       setNewEquipName('');
       setNewEquipDesc('');
       setNewEquipPhotoUrl('');
+      setEquipPhotoFileName('');
       setNewEquipDailyNgn('85000');
       setNewEquipUnits('2');
       await loadAdminData();
@@ -243,6 +245,31 @@ export default function AdminExecutiveDashboardPage() {
     } finally {
       setPostingEquip(false);
     }
+  }
+
+  function handleEquipPhotoFileSelect(file: File) {
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file (PNG, JPG, WEBP).');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image file size must be less than 10MB.');
+      return;
+    }
+    setPhotoUploading(true);
+    setEquipPhotoFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setNewEquipPhotoUrl(reader.result);
+      }
+      setPhotoUploading(false);
+    };
+    reader.onerror = () => {
+      setError('Failed to process the chosen image file.');
+      setPhotoUploading(false);
+    };
+    reader.readAsDataURL(file);
   }
 
   async function handleEquipmentCondition(itemId: string, condition: string) {
@@ -298,7 +325,7 @@ export default function AdminExecutiveDashboardPage() {
 
   async function handleInviteStaff(e: React.FormEvent) {
     e.preventDefault();
-    const res = await apiFetch<{ temporaryPassword: string }>('/auth/admin/invite', {
+    await apiFetch('/auth/admin/invite', {
       method: 'POST',
       body: JSON.stringify({
         email: inviteEmail,
@@ -308,7 +335,7 @@ export default function AdminExecutiveDashboardPage() {
       }),
     });
     setStatusBanner(
-      `Invited ${inviteRole} (${inviteEmail}). Temporary password: ${res.temporaryPassword}`
+      `Invitation sent to ${inviteEmail}. An activation link has been dispatched for them to set their password.`
     );
     setInviteEmail('');
     setInviteName('');
@@ -317,7 +344,7 @@ export default function AdminExecutiveDashboardPage() {
   }
 
   async function handleDownloadCsv(
-    endpoint: '/admin/payments' | '/admin/audit-logs',
+    endpoint: '/admin/payments',
     filename: string
   ) {
     const token = getStoredAccessToken();
@@ -420,14 +447,6 @@ export default function AdminExecutiveDashboardPage() {
             </button>
             <button
               type="button"
-              onClick={() => void handleDownloadCsv('/admin/audit-logs', 'icx_audit_events.csv')}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 px-3 py-2 text-xs font-black text-zinc-800 transition-colors"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5 text-zinc-700" />
-              <span>Audit CSV</span>
-            </button>
-            <button
-              type="button"
               onClick={() => void loadAdminData()}
               className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 px-3.5 py-2 text-xs font-black text-white shadow-xs transition-colors"
             >
@@ -448,7 +467,6 @@ export default function AdminExecutiveDashboardPage() {
               { id: 'photographers', label: 'Photographers', count: photographers.length, icon: Camera },
               { id: 'equipment', label: 'Cinema Fleet', count: equipment.length, icon: Package },
               { id: 'config', label: 'Settings', icon: Shield },
-              { id: 'audit', label: 'Audit Trail', count: auditLogs.length, icon: Clock },
             ].map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -1021,80 +1039,77 @@ export default function AdminExecutiveDashboardPage() {
                 </div>
 
                 <div className="sm:col-span-12 space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-1">
-                    <label className="block text-xs font-extrabold text-zinc-900">
-                      Equipment Product Photo URL (Live HTTPS)
-                    </label>
-                    <div className="flex flex-wrap gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewEquipName('ARRI Alexa Mini LF 4.5K Large Format Package');
-                          setNewEquipDailyNgn('185000');
-                          setNewEquipPhotoUrl('https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85');
-                          setNewEquipDesc('ARRI Alexa Mini LF body, LPL mount, EF adapter, Codex Compact Drive reader, Bebob V-mount cage, Arri viewfinder, Pelican flight case.');
-                        }}
-                        className="rounded-lg bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 text-[10px] font-bold text-zinc-800"
-                      >
-                        Preset: ARRI LF
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewEquipName('RED V-Raptor 8K VV Cinema Production Pack');
-                          setNewEquipDailyNgn('150000');
-                          setNewEquipPhotoUrl('https://images.unsplash.com/photo-1502920917128-1aa500764cbd?auto=format&fit=crop&w=1000&q=85');
-                          setNewEquipDesc('RED V-Raptor 8K multi-format sensor, Canon RF mount, 2TB RED PRO CFexpress, DSMC3 monitor, dual Anton Bauer Titon batteries.');
-                        }}
-                        className="rounded-lg bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 text-[10px] font-bold text-zinc-800"
-                      >
-                        Preset: RED Raptor
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewEquipName('Sony FX6 Full-Frame Cinema Camera Kit');
-                          setNewEquipDailyNgn('85000');
-                          setNewEquipPhotoUrl('https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1000&q=85');
-                          setNewEquipDesc('Sony FX6 4K full-frame sensor, top handle with XLR inputs, LCD monitor, 2x 160GB CFexpress Type A cards, BP-U batteries.');
-                        }}
-                        className="rounded-lg bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 text-[10px] font-bold text-zinc-800"
-                      >
-                        Preset: Sony FX6
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewEquipName('Profoto B10X Plus 500Ws Studio Flash Duo');
-                          setNewEquipDailyNgn('60000');
-                          setNewEquipPhotoUrl('https://images.unsplash.com/photo-1512790182412-b19e6d62bc39?auto=format&fit=crop&w=1000&q=85');
-                          setNewEquipDesc('Two Profoto B10X Plus 500Ws battery-powered heads, Air Remote TTL-C/N/S, 2x OCF speedrings, 2x softboxes, stands, and backpack.');
-                        }}
-                        className="rounded-lg bg-zinc-100 hover:bg-zinc-200 px-2 py-0.5 text-[10px] font-bold text-zinc-800"
-                      >
-                        Preset: Profoto Kit
-                      </button>
+                  <label className="block text-xs font-extrabold text-zinc-900">
+                    Equipment Product Photo
+                  </label>
+
+                  {newEquipPhotoUrl ? (
+                    <div className="flex flex-col sm:flex-row items-center gap-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                      <div className="h-24 w-24 shrink-0 rounded-xl overflow-hidden border border-zinc-200 bg-zinc-100 flex items-center justify-center">
+                        <img
+                          src={newEquipPhotoUrl}
+                          alt="Product preview"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 text-center sm:text-left">
+                        <p className="text-xs font-bold text-zinc-900 truncate">
+                          {equipPhotoFileName || 'Imported Product Image'}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">
+                          High-resolution asset ready for catalog publication
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2 justify-center sm:justify-start">
+                          <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50 px-3 py-1.5 text-xs font-bold text-zinc-700 transition">
+                            <UploadCloud className="h-3.5 w-3.5" />
+                            <span>Change Image</span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,image/jpg"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleEquipPhotoFileSelect(f);
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewEquipPhotoUrl('');
+                              setEquipPhotoFileName('');
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-1.5 text-xs font-bold text-red-700 transition"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-3 items-center">
-                    <input
-                      type="url"
-                      value={newEquipPhotoUrl}
-                      onChange={(e) => setNewEquipPhotoUrl(e.target.value)}
-                      placeholder="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85"
-                      className="w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                    />
-                    <div className="h-10 w-10 shrink-0 rounded-xl overflow-hidden border border-zinc-300 bg-zinc-100 flex items-center justify-center shadow-sm">
-                      <img
-                        src={newEquipPhotoUrl.trim() || DEFAULT_GEAR_IMG}
-                        alt="Preview"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = DEFAULT_GEAR_IMG;
+                  ) : (
+                    <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-zinc-300 bg-zinc-50 hover:bg-zinc-100 p-6 cursor-pointer transition text-center group">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-200 group-hover:bg-zinc-300 text-zinc-800 transition mb-3">
+                        <ImagePlus className="h-6 w-6" />
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-zinc-900">
+                        {photoUploading ? 'Processing Image...' : 'Click to select photo or drag & drop'}
+                      </span>
+                      <span className="text-[11px] text-zinc-500 mt-1">
+                        Select a high-resolution photo from your device (PNG, JPG, WEBP up to 10MB)
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/jpg"
+                        disabled={photoUploading}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleEquipPhotoFileSelect(f);
                         }}
-                        className="h-full w-full object-cover"
+                        className="hidden"
                       />
-                    </div>
-                  </div>
+                    </label>
+                  )}
                 </div>
 
                 <div className="sm:col-span-12">
@@ -1368,44 +1383,18 @@ export default function AdminExecutiveDashboardPage() {
                   <option value="admin">Executive Admin</option>
                 </select>
               </div>
-              <button
-                type="submit"
-                className="rounded-full bg-zinc-950 px-5 py-2.5 text-xs font-black text-white hover:bg-zinc-800 transition-colors"
-              >
-                Send Staff Invitation
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* TAB 8: IMMUTABLE APPEND-ONLY AUDIT LOGS */}
-        {activeTab === 'audit' && (
-          <div className="rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm space-y-4">
-            <h2 className="text-base sm:text-lg font-black text-zinc-950">
-              Append-Only Security &amp; Financial Audit Trail ({auditLogs.length})
-            </h2>
-            <div className="space-y-2 max-h-[540px] overflow-y-auto">
-              {auditLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+                <button
+                  type="submit"
+                  className="rounded-full bg-zinc-950 px-5 py-2.5 text-xs font-black text-white hover:bg-zinc-800 transition-colors"
                 >
-                  <div className="min-w-0 flex-1">
-                    <span className="font-mono font-black text-zinc-950">
-                      {log.action}
-                    </span>{' '}
-                    <span className="text-zinc-500 font-medium break-words">
-                      on {log.target_entity} (
-                      {log.target_id ? String(log.target_id).slice(0, 8) : 'global'})
-                    </span>
-                  </div>
-                  <div className="text-[11px] font-semibold text-zinc-500 shrink-0">
-                    Actor: {log.actor_email || 'System/Webhook'} •{' '}
-                    {new Date(log.created_at).toLocaleString()}
-                  </div>
-                </div>
-              ))}
-            </div>
+                  Send Staff Invitation
+                </button>
+                <p className="text-[11px] text-zinc-500">
+                  The recipient will receive an activation email to securely choose their own password.
+                </p>
+              </div>
+            </form>
           </div>
         )}
       </main>

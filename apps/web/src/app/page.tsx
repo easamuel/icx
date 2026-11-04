@@ -737,7 +737,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <span className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">
-                Studio Concierge FAQ
+                Studio Support FAQ
               </span>
               <h2 className="mt-2 text-3xl font-black tracking-tight text-zinc-950">
                 Frequently Asked Questions

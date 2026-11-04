@@ -203,7 +203,7 @@ export default function TermsOfServicePage() {
                 8. Dispute Resolution &amp; Governing Law
               </h2>
               <p>
-                These Terms are governed by and construed in accordance with the laws of the Federal Republic of Nigeria. In the event of any dispute, the parties shall first attempt to resolve the matter amicably through the ICX Concierge Dispute Resolution process. If unresolved within twenty-one (21) days, disputes shall be submitted to the exclusive jurisdiction of the competent courts of Lagos State, Nigeria.
+                These Terms are governed by and construed in accordance with the laws of the Federal Republic of Nigeria. In the event of any dispute, the parties shall first attempt to resolve the matter amicably through the ICX Support Dispute Resolution process. If unresolved within twenty-one (21) days, disputes shall be submitted to the exclusive jurisdiction of the competent courts of Lagos State, Nigeria.
               </p>
             </section>
 
@@ -218,7 +218,7 @@ export default function TermsOfServicePage() {
               <div className="rounded-2xl border border-zinc-200 bg-white p-5 space-y-2 font-medium text-xs text-zinc-800">
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-zinc-500 shrink-0" />
-                  <span>Legal Department: <strong>legal@icxora.com</strong> / <strong>concierge@icxora.com</strong></span>
+                  <span>Legal Department: <strong>legal@icxora.com</strong> / <strong>support@icxora.com</strong></span>
                 </div>
                 <div>
                   LearnArk Technology Limited (RC Registered) • Victoria Island &amp; Lekki Phase 1, Lagos, Nigeria
@@ -240,7 +240,7 @@ export default function TermsOfServicePage() {
               href="/support"
               className="inline-flex items-center gap-2 text-xs font-black text-zinc-900 hover:text-zinc-600 transition-colors"
             >
-              <span>Contact Support &amp; Concierge</span>
+              <span>Contact Support Desk</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
