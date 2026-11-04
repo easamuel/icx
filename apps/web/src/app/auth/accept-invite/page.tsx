@@ -6,8 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ShieldCheck, AlertCircle, Eye, EyeOff, CheckCircle2, ArrowRight } from 'lucide-react';
 import { AppNavbar } from '@/components/layout/AppNavbar';
 import { AppFooter } from '@/components/layout/AppFooter';
-import { apiFetch, ApiError } from '@/lib/api';
-import { setStoredSession } from '@/lib/auth-storage';
+import { apiFetch, setStoredSession, ApiError } from '@/lib/api';
 import type { UserRecord } from '@icx/shared-types';
 
 interface InviteDetails {
@@ -266,3 +265,4 @@ export default function AcceptInvitePage() {
     </div>
   );
 }
+
