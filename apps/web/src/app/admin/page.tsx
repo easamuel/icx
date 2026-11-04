@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   FileSpreadsheet,
   AlertCircle,
@@ -59,6 +60,7 @@ type AdminTab =
   | 'audit';
 
 export default function AdminExecutiveDashboardPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [overview, setOverview] = useState<Record<string, any> | null>(null);
   const [users, setUsers] = useState<Array<Record<string, any>>>([]);
@@ -126,8 +128,9 @@ export default function AdminExecutiveDashboardPage() {
           ? err.message
           : 'Sign in with an Executive Admin account to access the Control Center.'
       );
+      router.push('/l/admin/login');
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     void loadAdminData();

@@ -52,10 +52,17 @@ export default function LoginPage() {
       }
 
       if (res.accessToken && res.user) {
-        setStoredSession(res.accessToken, res.user);
         if (res.user.role === 'admin') {
-          router.push('/admin');
-        } else if (res.user.role === 'editor') {
+          clearStoredSession();
+          setError(
+            'Executive accounts are restricted from the public portal. Please sign in via your designated internal gateway.'
+          );
+          setLoading(false);
+          return;
+        }
+
+        setStoredSession(res.accessToken, res.user);
+        if (res.user.role === 'editor') {
           router.push('/workspace/editor');
         } else if (res.user.role === 'photographer') {
           router.push('/portal/photographer');
