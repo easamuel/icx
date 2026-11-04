@@ -34,11 +34,11 @@ export function IcxLogo({
   mark = 'slash',
   className = 'h-10 w-auto',
 }: IcxLogoProps) {
-  const isLightInk = variant === 'light' || variant === 'sand-on-slate';
-  const fill = isLightInk ? '#E6D8C3' : '#18181B';
+  const fill = '#E6D8C3';
+  const needsObsidianBadge = variant === 'dark' || variant === 'slate-on-sand';
 
-  if (mark === 'reel') {
-    return (
+  const svgElement =
+    mark === 'reel' ? (
       <svg
         viewBox="150 98 165 65"
         fill="none"
@@ -72,31 +72,38 @@ export function IcxLogo({
           STUDIOS
         </text>
       </svg>
+    ) : (
+      <svg
+        viewBox="164 87 132 85"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+        aria-label="ICX Studios"
+      >
+        {SLASH_MARK_PATHS.map((d, i) => (
+          <path key={i} d={d} fill={fill} fillRule="evenodd" clipRule="evenodd" />
+        ))}
+        <text
+          x="238.5"
+          y="161.5"
+          fill={fill}
+          fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+          fontWeight="800"
+          fontSize="7.2"
+          letterSpacing="1.15"
+        >
+          STUDIOS
+        </text>
+      </svg>
+    );
+
+  if (needsObsidianBadge) {
+    return (
+      <span className="inline-flex items-center justify-center rounded-2xl bg-zinc-950 px-3.5 py-1.5 shadow-sm ring-1 ring-zinc-900/10">
+        {svgElement}
+      </span>
     );
   }
 
-  return (
-    <svg
-      viewBox="164 87 132 85"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-label="ICX Studios"
-    >
-      {SLASH_MARK_PATHS.map((d, i) => (
-        <path key={i} d={d} fill={fill} fillRule="evenodd" clipRule="evenodd" />
-      ))}
-      <text
-        x="238.5"
-        y="161.5"
-        fill={fill}
-        fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-        fontWeight="800"
-        fontSize="7.2"
-        letterSpacing="1.15"
-      >
-        STUDIOS
-      </text>
-    </svg>
-  );
+  return svgElement;
 }

@@ -303,7 +303,7 @@ adminRouter.patch(
   '/equipment/:itemId',
   async (req: Request, res: Response): Promise<void> => {
     const itemId = String(req.params.itemId || '');
-    const { name, description, daily_price, total_units, condition, active } = req.body;
+    const { name, description, photos, daily_price, total_units, condition, active } = req.body;
 
     const updated = await query(
       `UPDATE equipment_items
@@ -312,8 +312,9 @@ adminRouter.patch(
            daily_price = COALESCE($3, daily_price),
            total_units = COALESCE($4, total_units),
            condition = COALESCE($5, condition),
-           active = COALESCE($6, active)
-       WHERE id = $7
+           active = COALESCE($6, active),
+           photos = COALESCE($7::jsonb, photos)
+       WHERE id = $8
        RETURNING *`,
       [
         name ?? null,
@@ -322,6 +323,7 @@ adminRouter.patch(
         total_units !== undefined ? Number(total_units) : null,
         condition ?? null,
         active !== undefined ? Boolean(active) : null,
+        Array.isArray(photos) ? JSON.stringify(photos) : null,
         itemId,
       ]
     );

@@ -44,6 +44,13 @@ export default function AdminExecutiveDashboardPage() {
   const [inviteName, setInviteName] = useState('');
   const [invitePhone, setInvitePhone] = useState('');
   const [inviteRole, setInviteRole] = useState<'editor' | 'admin'>('editor');
+  const [newEquipName, setNewEquipName] = useState('');
+  const [newEquipDesc, setNewEquipDesc] = useState('');
+  const [newEquipDailyNgn, setNewEquipDailyNgn] = useState('85000');
+  const [newEquipUnits, setNewEquipUnits] = useState('2');
+  const [newEquipPhotoUrl, setNewEquipPhotoUrl] = useState('');
+  const [newEquipCondition, setNewEquipCondition] = useState<'excellent' | 'good' | 'fair'>('excellent');
+  const [postingEquip, setPostingEquip] = useState(false);
   const [statusBanner, setStatusBanner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,12 +121,62 @@ export default function AdminExecutiveDashboardPage() {
     await loadAdminData();
   }
 
+  async function handleCreateEquipment(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setPostingEquip(true);
+    try {
+      const dailyKobo = Math.round(Number(newEquipDailyNgn) * 100);
+      const photos = newEquipPhotoUrl.trim()
+        ? [newEquipPhotoUrl.trim()]
+        : [
+            'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85',
+          ];
+
+      await apiFetch('/admin/equipment', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newEquipName.trim(),
+          description: newEquipDesc.trim(),
+          photos,
+          daily_price: dailyKobo,
+          total_units: Math.max(1, Number(newEquipUnits) || 1),
+          condition: newEquipCondition,
+          active: true,
+        }),
+      });
+
+      setStatusBanner(`Published "${newEquipName.trim()}" to the live Rentage Vault.`);
+      setNewEquipName('');
+      setNewEquipDesc('');
+      setNewEquipPhotoUrl('');
+      setNewEquipDailyNgn('85000');
+      setNewEquipUnits('2');
+      await loadAdminData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to post equipment for rentage.');
+    } finally {
+      setPostingEquip(false);
+    }
+  }
+
   async function handleEquipmentCondition(itemId: string, condition: string) {
     await apiFetch(`/admin/equipment/${itemId}`, {
       method: 'PATCH',
       body: JSON.stringify({ condition }),
     });
     setStatusBanner(`Equipment condition updated to ${condition}`);
+    await loadAdminData();
+  }
+
+  async function handleToggleEquipmentActive(itemId: string, active: boolean) {
+    await apiFetch(`/admin/equipment/${itemId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active }),
+    });
+    setStatusBanner(
+      active ? 'Equipment item activated in live rentage catalog.' : 'Equipment item hidden from live rentage catalog.'
+    );
     await loadAdminData();
   }
 
@@ -457,41 +514,186 @@ export default function AdminExecutiveDashboardPage() {
           </div>
         )}
 
-        {/* TAB 4: EQUIPMENT INVENTORY & RENTAL TIMELINE */}
+        {/* TAB 4: EQUIPMENT INVENTORY & RENTAL TIMELINE (ADMIN-ONLY RENTAGE POSTING) */}
         {activeTab === 'equipment' && (
           <div className="space-y-8">
+            {/* Admin-Exclusive Form to Post New Gear for Rentage */}
+            <form
+              onSubmit={handleCreateEquipment}
+              className="rounded-3xl border-2 border-zinc-950 bg-white p-6 sm:p-8 shadow-sm space-y-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-4">
+                <div>
+                  <span className="inline-block rounded-full bg-zinc-950 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-white">
+                    Admin Exclusive Authority
+                  </span>
+                  <h2 className="mt-2 text-xl font-black text-zinc-950">
+                    Post New Cinema &amp; Studio Equipment for Rentage
+                  </h2>
+                  <p className="text-xs text-zinc-600">
+                    Only Executive Administrators can publish equipment to the live rentage catalog on /rentals.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
+                <div className="sm:col-span-6">
+                  <label className="block text-xs font-extrabold text-zinc-900">
+                    Equipment Title / Package Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newEquipName}
+                    onChange={(e) => setNewEquipName(e.target.value)}
+                    placeholder="e.g. ARRI Alexa Mini LF 4.5K Cinema Package"
+                    className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-extrabold text-zinc-900">
+                    Daily Rate (₦ NGN)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1000}
+                    step={500}
+                    value={newEquipDailyNgn}
+                    onChange={(e) => setNewEquipDailyNgn(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-xs font-black text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-extrabold text-zinc-900">
+                    Total Units in Vault
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    max={50}
+                    value={newEquipUnits}
+                    onChange={(e) => setNewEquipUnits(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-xs font-black text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-extrabold text-zinc-900">
+                    Initial Condition
+                  </label>
+                  <select
+                    aria-label="Initial Condition"
+                    value={newEquipCondition}
+                    onChange={(e) =>
+                      setNewEquipCondition(e.target.value as 'excellent' | 'good' | 'fair')
+                    }
+                    className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                  >
+                    <option value="excellent">Excellent</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-12">
+                  <label className="block text-xs font-extrabold text-zinc-900">
+                    Equipment Product Photo URL (HTTPS)
+                  </label>
+                  <input
+                    type="url"
+                    value={newEquipPhotoUrl}
+                    onChange={(e) => setNewEquipPhotoUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85"
+                    className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-12">
+                  <label className="block text-xs font-extrabold text-zinc-900">
+                    Technical Specifications &amp; Included Vault Accessories
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    value={newEquipDesc}
+                    onChange={(e) => setNewEquipDesc(e.target.value)}
+                    placeholder="List sensor specs, mounts, batteries, media cards, flight case, and modifiers included with this rental..."
+                    className="mt-1 w-full rounded-2xl border border-zinc-300 bg-zinc-50 p-3.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={postingEquip}
+                  className="rounded-full bg-zinc-950 px-7 py-3 text-xs font-black text-white shadow-lg hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  {postingEquip ? 'Publishing to Vault...' : '+ Publish Equipment for Rentage'}
+                </button>
+              </div>
+            </form>
+
             <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-5">
               <h2 className="text-lg font-black text-zinc-950">
-                Cinema Fleet Condition &amp; Maintenance Controls
+                Cinema Fleet Condition &amp; Catalog Visibility Controls ({equipment.length})
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {equipment.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 space-y-3"
+                    className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5 space-y-3 flex flex-col justify-between"
                   >
-                    <div className="text-sm font-black text-zinc-950">{item.name}</div>
-                    <div className="text-xs font-semibold text-zinc-500">
-                      {formatNaira(item.daily_price)}/day • {item.total_units} total units
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="text-sm font-black text-zinc-950">{item.name}</div>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase shrink-0 ${
+                            item.active
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-zinc-200 text-zinc-600'
+                          }`}
+                        >
+                          {item.active ? 'Live' : 'Hidden'}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs font-semibold text-zinc-500">
+                        {formatNaira(item.daily_price)}/day • {item.total_units} total units
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-200">
-                      <span className="text-[11px] uppercase font-black text-zinc-950">
-                        {item.condition}
-                      </span>
-                      <select
-                        aria-label="Equipment Condition"
-                        value={item.condition}
-                        onChange={(e) =>
-                          void handleEquipmentCondition(item.id, e.target.value)
+                    <div className="space-y-2 pt-3 border-t border-zinc-200">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] uppercase font-black text-zinc-950">
+                          {item.condition}
+                        </span>
+                        <select
+                          aria-label="Equipment Condition"
+                          value={item.condition}
+                          onChange={(e) =>
+                            void handleEquipmentCondition(item.id, e.target.value)
+                          }
+                          className="rounded-xl border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-950"
+                        >
+                          <option value="excellent">Excellent</option>
+                          <option value="good">Good</option>
+                          <option value="fair">Fair</option>
+                          <option value="under_repair">Under Repair (Blocks Rentals)</option>
+                          <option value="retired">Retired</option>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleToggleEquipmentActive(item.id, !item.active)
                         }
-                        className="rounded-xl border border-zinc-300 bg-white px-3 py-1.5 text-xs font-bold text-zinc-950"
+                        className="w-full rounded-xl border border-zinc-300 bg-white py-1.5 text-[11px] font-bold text-zinc-800 hover:border-zinc-950"
                       >
-                        <option value="excellent">Excellent</option>
-                        <option value="good">Good</option>
-                        <option value="fair">Fair</option>
-                        <option value="under_repair">Under Repair (Blocks Rentals)</option>
-                        <option value="retired">Retired</option>
-                      </select>
+                        {item.active ? 'Hide from Public Rentals' : 'Publish to Public Rentals'}
+                      </button>
                     </div>
                   </div>
                 ))}

@@ -117,7 +117,7 @@ export default function RegisterPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 className="mt-1.5 block w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-4 py-3 text-sm text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                placeholder="Chidi Okafor"
+                placeholder="Chukwudi Okafor"
               />
             </div>
 

@@ -28,27 +28,27 @@ const HERO_PRESETS = [
     package: 'High-End Frequency Separation • ₦6,000 / frame',
     turnaround: '48h Turnaround',
     image:
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=90',
+      'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=1200&q=90',
     beforeFilter: 'sepia(0.18) saturate(0.68) contrast(0.86) brightness(0.92)',
     afterFilter: 'contrast(1.08) saturate(1.12) brightness(1.03)',
   },
   {
     id: 'fashion',
-    label: 'Campaign Fashion Mastering',
+    label: 'Ankara Couture & Fashion Mastering',
     package: 'Commercial Campaign Composite • ₦12,000 / frame',
     turnaround: '72h Turnaround',
     image:
-      'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1200&q=90',
+      'https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=1200&q=90',
     beforeFilter: 'saturate(0.55) contrast(0.85) brightness(0.9)',
     afterFilter: 'contrast(1.12) saturate(1.15) brightness(1.04)',
   },
   {
     id: 'bridal',
-    label: 'Fine-Art Bridal & Portrait',
+    label: 'Fine-Art Melanin Beauty & Bridal',
     package: 'Essential Studio Color & Exposure • ₦2,500 / frame',
     turnaround: '24h Turnaround',
     image:
-      'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=1200&q=90',
+      'https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&w=1200&q=90',
     beforeFilter: 'saturate(0.6) contrast(0.88) brightness(0.91)',
     afterFilter: 'contrast(1.09) saturate(1.1) brightness(1.03)',
   },
@@ -56,44 +56,44 @@ const HERO_PRESETS = [
 
 const FEATURED_PHOTOGRAPHERS = [
   {
-    name: 'Amara Nwosu Studios',
-    specialty: 'Editorial Fashion & Executive Portraiture',
+    name: 'Adesua Nwosu Studios',
+    specialty: 'Editorial Fashion & Ankara Couture Portraiture',
     location: 'Victoria Island, Lagos',
     rating: '4.98',
     reviews: 64,
     startingPrice: 15000000,
     image:
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=85',
+      'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=900&q=85',
   },
   {
     name: 'Kolawole Olanrewaju Visuals',
-    specialty: 'Luxury Weddings & Society Editorial',
+    specialty: 'Traditional Society Weddings & Bridal Editorial',
     location: 'Ikoyi, Lagos',
     rating: '4.95',
     reviews: 51,
     startingPrice: 22000000,
     image:
-      'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=900&q=85',
+      'https://images.unsplash.com/photo-1531123414780-f74242c2b052?auto=format&fit=crop&w=900&q=85',
   },
   {
-    name: 'Zainab Ibrahim Studio',
-    specialty: 'C-Suite Portraiture & Beauty Campaigns',
+    name: 'Ngozi Ezeani Studio',
+    specialty: 'C-Suite Boardroom Portraiture & Beauty Campaigns',
     location: 'Maitama, Abuja',
     rating: '4.92',
     reviews: 39,
     startingPrice: 18000000,
     image:
-      'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=900&q=85',
+      'https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&w=900&q=85',
   },
   {
-    name: 'David Adeleke Commercial',
-    specialty: 'Product, Architecture & Brand Lookbooks',
+    name: 'Obinna Adeleke Commercial',
+    specialty: 'Commercial Campaigns, Architecture & Lookbooks',
     location: 'Lekki Phase 1, Lagos',
     rating: '4.96',
     reviews: 47,
     startingPrice: 20000000,
     image:
-      'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&w=900&q=85',
+      'https://images.unsplash.com/photo-1531384441138-2736e62e0919?auto=format&fit=crop&w=900&q=85',
   },
 ];
 

@@ -27,14 +27,35 @@ type DirectoryPhotographer = PhotographerProfileRecord & { full_name: string };
 const LOCATION_PILLS = ['All', 'Victoria Island', 'Ikoyi', 'Lekki', 'Abuja'];
 
 const FALLBACK_PORTFOLIO = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=85',
-  'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1000&q=85',
-  'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1000&q=85',
-  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1000&q=85',
+  'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=1000&q=85',
+  'https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=1000&q=85',
+  'https://images.unsplash.com/photo-1589156280159-27698a70f29e?auto=format&fit=crop&w=1000&q=85',
+  'https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&w=1000&q=85',
+];
+
+const BANNED_NON_AFRICAN_IDS = [
+  '1534528741775',
+  '1509631179647',
+  '1515886657613',
+  '1524504388940',
+  '1519741497674',
+  '1511285560929',
+  '1537633552985',
+  '1465495976277',
+  '1531746020798',
+  '1507003211169',
+  '1573496359142',
+  '1560250097',
+  '1542038784456',
+  '1492691527719',
 ];
 
 function getValidPortfolioUrls(urls?: string[]): string[] {
-  const valid = (urls || []).filter((u) => u.startsWith('http'));
+  const valid = (urls || []).filter(
+    (u) =>
+      u.startsWith('http') &&
+      !BANNED_NON_AFRICAN_IDS.some((badId) => u.includes(badId))
+  );
   return valid.length > 0 ? valid : FALLBACK_PORTFOLIO;
 }
 
