@@ -485,6 +485,40 @@ authRouter.post('/verify-email', async (req: Request, res: Response): Promise<vo
   });
 });
 
+// GET /api/v1/auth/verify-email (Direct email link browser handler)
+authRouter.get('/verify-email', async (req: Request, res: Response): Promise<void> => {
+  const token = String(req.query.token || '').trim();
+  const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
+
+  if (!token) {
+    res.redirect(`${webUrl}/account/security?error=missing_token`);
+    return;
+  }
+
+  const userId = await redis.get(RedisKeys.emailVerificationToken(token));
+  if (!userId) {
+    res.redirect(`${webUrl}/account/security?error=expired_token`);
+    return;
+  }
+
+  await query(
+    `UPDATE users
+     SET email_verified_at = COALESCE(email_verified_at, NOW())
+     WHERE id = $1`,
+    [userId]
+  );
+  await redis.del(RedisKeys.emailVerificationToken(token));
+
+  await recordAuditEvent({
+    actorId: userId,
+    action: 'EMAIL_VERIFIED',
+    targetEntity: 'users',
+    targetId: userId,
+  });
+
+  res.redirect(`${webUrl}/account/security?verified=1`);
+});
+
 // ============================================================================
 // GET /api/v1/auth/verification-status (Real-time Cross-Device Status Polling)
 // ============================================================================
