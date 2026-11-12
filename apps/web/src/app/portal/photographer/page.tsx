@@ -625,109 +625,38 @@ export default function PhotographerPortalPage() {
               </div>
             </div>
 
-            {/* Recent Works & Directory Portfolio Showcase */}
+            {/* Verified Portfolio Showcase (Read-Only — Managed via Onboarding & Admin Review) */}
             <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-100 pb-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <Camera className="h-5 w-5 text-purple-600" />
                     <h2 className="text-lg font-black text-zinc-950">
-                      Recent Works &amp; Directory Portfolio Showcase ({portfolioUrls.length})
+                      Verified Portfolio Showcase ({portfolioUrls.length})
                     </h2>
                   </div>
                   <p className="mt-1 text-xs text-zinc-600">
-                    Upload your high-resolution studio captures, editorial portraits, and event works. These appear directly on your public ICX Photographers Directory card.
+                    Your proof-of-work portfolio is verified during onboarding and locked to maintain directory standards. Contact support@icxora.com to request portfolio updates.
                   </p>
                 </div>
-
-                <label className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-zinc-950 px-4 py-2.5 text-xs font-bold text-white hover:bg-zinc-800 transition shadow-xs shrink-0">
-                  <ImagePlus className="h-4 w-4" />
-                  <span>{uploadingPortfolio ? 'Uploading Works...' : 'Import Photos from Device'}</span>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/png,image/jpeg,image/webp,image/jpg"
-                    disabled={uploadingPortfolio}
-                    onChange={(e) => void handlePortfolioFilesSelect(e.target.files)}
-                    className="hidden"
-                  />
-                </label>
               </div>
 
-              {/* Upload Drop Zone */}
-              <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-zinc-300 bg-zinc-50/70 hover:bg-zinc-100 p-8 cursor-pointer transition text-center group">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-200 group-hover:bg-purple-100 group-hover:text-purple-700 text-zinc-700 transition mb-3">
-                  <UploadCloud className="h-6 w-6" />
-                </div>
-                <span className="text-sm font-bold text-zinc-950">
-                  {uploadingPortfolio ? 'Processing and optimizing photos...' : 'Drag and drop your recent works here or click to browse'}
-                </span>
-                <span className="text-xs text-zinc-500 mt-1">
-                  Select multiple high-resolution photos (PNG, JPG, WEBP up to 20MB each)
-                </span>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/png,image/jpeg,image/webp,image/jpg"
-                  disabled={uploadingPortfolio}
-                  onChange={(e) => void handlePortfolioFilesSelect(e.target.files)}
-                  className="hidden"
-                />
-              </label>
-
-              {/* Gallery of Uploaded Works */}
               {portfolioUrls.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-zinc-200 p-8 text-center text-xs text-zinc-500">
-                  No recent works uploaded yet. Import your best photography above so clients browsing the Lagos &amp; Abuja directory can see your creative work!
+                  No verified portfolio images on record yet.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {portfolioUrls.map((url, idx) => (
                     <div
                       key={idx}
-                      className="group relative rounded-2xl overflow-hidden border border-zinc-200 bg-zinc-100 aspect-4/5 shadow-xs flex flex-col justify-between"
+                      className="relative rounded-2xl overflow-hidden border border-zinc-200 bg-zinc-100 aspect-4/5 shadow-xs"
                     >
                       <img
                         src={url}
-                        alt={`Portfolio Work #${idx + 1}`}
-                        className="absolute inset-0 h-full w-full object-cover"
+                        alt={`Verified Portfolio #${idx + 1}`}
+                        className="h-full w-full object-cover"
                       />
-
-                      {/* Top Overlay Badge */}
-                      <div className="relative z-10 p-2 flex items-center justify-between">
-                        {idx === 0 ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-black uppercase text-white shadow-xs">
-                            <Star className="h-2.5 w-2.5 fill-current" />
-                            <span>Cover</span>
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-black/60 backdrop-blur-xs px-2 py-0.5 text-[9px] font-bold text-white">
-                            #{idx + 1}
-                          </span>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => void handleRemovePortfolioPhoto(idx)}
-                          className="rounded-full bg-red-600/90 hover:bg-red-700 text-white p-1 shadow-xs transition"
-                          title="Remove photo"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-
-                      {/* Bottom Overlay Action: Make Cover */}
-                      {idx !== 0 && (
-                        <div className="relative z-10 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={() => void handleSetCoverPhoto(idx)}
-                            className="w-full rounded-lg bg-black/80 hover:bg-black text-white text-[10px] font-bold py-1.5 transition backdrop-blur-xs"
-                          >
-                            Set as Cover
-                          </button>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

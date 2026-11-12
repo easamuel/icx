@@ -57,17 +57,14 @@ const DEFAULT_PACKAGE_RATES: Record<BookingPackageType, number> = {
   'Full day event booking': 28000000,
 };
 
-const FALLBACK_PORTFOLIO = [
-  'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=800&q=80',
-];
-
 function getValidPortfolioUrls(urls?: string[] | null): string[] {
-  const valid = (urls || []).filter(
-    (u) => typeof u === 'string' && (u.startsWith('http') || u.startsWith('/api/'))
+  return (urls || []).filter(
+    (u) =>
+      typeof u === 'string' &&
+      !u.includes('localhost') &&
+      !u.includes('127.0.0.1') &&
+      (u.startsWith('https://') || u.startsWith('/api/'))
   );
-  return valid.length > 0 ? valid : FALLBACK_PORTFOLIO;
 }
 
 function formatReadableDate(dateStr: string): string {
@@ -308,11 +305,17 @@ export default function PhotographersBookingPage() {
                       }`}
                     >
                       <div className="relative h-44 w-full bg-zinc-100 overflow-hidden">
-                        <img
-                          src={gallery[0]}
-                          alt={photog.full_name}
-                          className="h-full w-full object-cover"
-                        />
+                        {gallery[0] ? (
+                          <img
+                            src={gallery[0]}
+                            alt={photog.full_name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center bg-zinc-900 text-zinc-500">
+                            <Camera className="w-8 h-8" />
+                          </div>
+                        )}
                         <div className="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-zinc-950/85 backdrop-blur px-2.5 py-1 text-[11px] font-bold text-white">
                           <ShieldCheck className="w-3 h-3 text-emerald-400" />
                           Verified
@@ -404,11 +407,17 @@ export default function PhotographersBookingPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3 pb-4 border-b border-zinc-100">
-                  <img
-                    src={getValidPortfolioUrls(selectedPhotographer.portfolio_urls)[0]}
-                    alt={selectedPhotographer.full_name}
-                    className="w-12 h-12 rounded-2xl object-cover border border-zinc-200"
-                  />
+                  {getValidPortfolioUrls(selectedPhotographer.portfolio_urls)[0] ? (
+                    <img
+                      src={getValidPortfolioUrls(selectedPhotographer.portfolio_urls)[0]}
+                      alt={selectedPhotographer.full_name}
+                      className="w-12 h-12 rounded-2xl object-cover border border-zinc-200"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-2xl bg-zinc-900 text-zinc-400 flex items-center justify-center border border-zinc-200">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
                       Booking With

@@ -341,7 +341,7 @@ export default function AccountProfileAndSecurityPage() {
 
                     <div>
                       <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
-                        Nigerian Phone Number (11 Digits)
+                        Phone Number
                       </label>
                       <input
                         type="tel"
@@ -354,7 +354,7 @@ export default function AccountProfileAndSecurityPage() {
                       />
                       {!user?.phone && (
                         <p className="mt-1.5 text-[11px] font-semibold text-amber-700">
-                          No phone number linked yet (e.g., Google sign-up). Add your 11-digit Nigerian phone number for bookings &amp; gear rentals.
+                          No phone number linked yet. Add your phone number for bookings &amp; gear rentals.
                         </p>
                       )}
                     </div>

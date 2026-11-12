@@ -416,7 +416,7 @@ export default function EquipmentRentalPage() {
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-zinc-900">
-                          Active Nigerian Phone Number (11 Digits)
+                          Phone Number
                         </label>
                         <input
                           type="tel"

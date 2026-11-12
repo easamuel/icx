@@ -364,7 +364,7 @@ export default function RegisterPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-zinc-700">
-                    Nigerian Phone Number (11 Digits)
+                    Phone Number
                   </label>
                   <input
                     type="tel"

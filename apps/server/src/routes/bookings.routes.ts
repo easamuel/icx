@@ -471,19 +471,17 @@ bookingsRouter.put(
       return;
     }
 
-    const { bio, location, portfolio_urls, services_and_prices } = parsed.data;
+    const { bio, location, services_and_prices } = parsed.data;
     const updated = await query<PhotographerProfileRecord>(
       `UPDATE photographer_profiles
        SET bio = $1,
            location = $2,
-           portfolio_urls = $3::jsonb,
-           services_and_prices = $4::jsonb
-       WHERE user_id = $5
+           services_and_prices = $3::jsonb
+       WHERE user_id = $4
        RETURNING *`,
       [
         bio,
         location,
-        JSON.stringify(portfolio_urls),
         JSON.stringify(services_and_prices),
         req.user!.sub,
       ]
