@@ -222,6 +222,171 @@ export async function getEquipmentAvailabilityCalendar(
   };
 }
 
+const DEFAULT_PACKAGE_PRICES: Record<string, number> = {
+  'Studio walk in': 7500000,
+  'Half day event booking': 15000000,
+  'Full day event booking': 28000000,
+};
+
+export async function requestDatePackageBookingTransaction(params: {
+  customerId: string;
+  photographerProfileId: string;
+  bookingDate: string;
+  packageType: 'Studio walk in' | 'Half day event booking' | 'Full day event booking';
+  timePeriod?: string;
+  notes?: string;
+}): Promise<{ booking: BookingRecord }> {
+  const result = await withTransaction(async (client) => {
+    // Lock photographer profile row FOR UPDATE to serialize concurrent date/period checks
+    const photogRes = await client.query<{
+      id: string;
+      user_id: string;
+      approval_status: string;
+      user_status: string;
+      email_verified_at: Date | null;
+      services_and_prices: Array<{ title: string; price: number }>;
+      email: string;
+      full_name: string;
+    }>(
+      `SELECT pp.id, pp.user_id, pp.approval_status, u.status AS user_status, u.email_verified_at,
+              pp.services_and_prices, u.email, u.full_name
+       FROM photographer_profiles pp
+       JOIN users u ON u.id = pp.user_id
+       WHERE pp.id = $1
+       FOR UPDATE OF pp`,
+      [params.photographerProfileId]
+    );
+
+    const photog = photogRes.rows[0];
+    if (
+      !photog ||
+      photog.approval_status !== 'approved' ||
+      photog.user_status !== 'active' ||
+      !photog.email_verified_at
+    ) {
+      throw new ConcurrencyConflictError(
+        'PHOTOGRAPHER_NOT_APPROVED',
+        'This photographer is not currently verified and approved to take bookings.'
+      );
+    }
+
+    const existingBookings = await client.query<{
+      package_type: string | null;
+      time_period: string | null;
+    }>(
+      `SELECT package_type, time_period
+       FROM bookings
+       WHERE photographer_id = $1
+         AND booking_date = $2::date
+         AND status NOT IN ('cancelled', 'declined', 'expired')`,
+      [params.photographerProfileId, params.bookingDate]
+    );
+
+    const activeRows = existingBookings.rows;
+    const hasFullDay = activeRows.some((r) => r.package_type === 'Full day event booking');
+
+    if (hasFullDay) {
+      throw new ConcurrencyConflictError(
+        'DATE_UNAVAILABLE',
+        'This date is already booked for a Full day event booking.'
+      );
+    }
+
+    if (params.packageType === 'Full day event booking' && activeRows.length > 0) {
+      throw new ConcurrencyConflictError(
+        'FULL_DAY_UNAVAILABLE',
+        'Full day event booking is unavailable because a time period on this date is already reserved.'
+      );
+    }
+
+    if (params.packageType !== 'Full day event booking') {
+      if (!params.timePeriod) {
+        throw new ConcurrencyConflictError(
+          'TIME_PERIOD_REQUIRED',
+          'A time period is required for this booking package.'
+        );
+      }
+      const periodTaken = activeRows.some((r) => r.time_period === params.timePeriod);
+      if (periodTaken) {
+        throw new ConcurrencyConflictError(
+          'TIME_PERIOD_UNAVAILABLE',
+          `${params.timePeriod} is already booked on ${params.bookingDate}. Please choose another time period.`
+        );
+      }
+    }
+
+    const settingsRes = await client.query<{ value: { photographer_commission_rate?: number } }>(
+      `SELECT value FROM platform_settings WHERE key = 'commission_rates' LIMIT 1`
+    );
+    const commissionRate = Number(
+      settingsRes.rows[0]?.value?.photographer_commission_rate ?? 15.0
+    );
+
+    const matchedService = (photog.services_and_prices || []).find(
+      (s) => s.title.toLowerCase() === params.packageType.toLowerCase()
+    );
+    const priceBigInt = BigInt(
+      matchedService ? Number(matchedService.price) : DEFAULT_PACKAGE_PRICES[params.packageType] || 15000000
+    );
+    const commissionAmount =
+      (priceBigInt * BigInt(Math.round(commissionRate * 100))) / 10000n;
+
+    const bookingRes = await client.query<BookingRecord>(
+      `INSERT INTO bookings (
+         customer_id, photographer_id, slot_id, service_title,
+         booking_date, package_type, time_period, notes,
+         price, commission_rate, commission_amount, status
+       )
+       VALUES ($1, $2, NULL, $3, $4::date, $5, $6, $7, $8, $9, $10, 'requested')
+       RETURNING *`,
+      [
+        params.customerId,
+        params.photographerProfileId,
+        params.timePeriod ? `${params.packageType} — ${params.timePeriod}` : params.packageType,
+        params.bookingDate,
+        params.packageType,
+        params.packageType === 'Full day event booking' ? null : params.timePeriod || null,
+        params.notes || null,
+        priceBigInt.toString(),
+        commissionRate.toFixed(2),
+        commissionAmount.toString(),
+      ]
+    );
+
+    const booking = bookingRes.rows[0]!;
+
+    await recordAuditEvent(
+      {
+        actorId: params.customerId,
+        action: 'BOOKING_CREATED',
+        targetEntity: 'bookings',
+        targetId: booking.id,
+        details: {
+          photographerId: params.photographerProfileId,
+          bookingDate: params.bookingDate,
+          packageType: params.packageType,
+          timePeriod: params.timePeriod || null,
+        },
+      },
+      client
+    );
+
+    return { booking, photographerEmail: photog.email, photographerName: photog.full_name };
+  });
+
+  await dispatchNotification({
+    triggerId: 'NT-05',
+    recipientEmail: result.photographerEmail,
+    recipientUserId: params.photographerProfileId,
+    subject: `New ${params.packageType} Booking Request (${params.bookingDate})`,
+    htmlBody: `<p>You have a new <strong>${params.packageType}</strong> request for <strong>${params.bookingDate}</strong>${params.timePeriod ? ` (${params.timePeriod})` : ''}. Review it in your Photographer Portal.</p>`,
+    targetEntity: 'bookings',
+    targetId: result.booking.id,
+  });
+
+  return { booking: result.booking };
+}
+
 /**
  * Requirement PB-03, PB-04, PB-07, NF-04:
  * Atomically locks a photographer availability slot for 48 hours and creates a booking request.

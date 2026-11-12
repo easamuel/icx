@@ -16,7 +16,7 @@ import {
 import { formatNaira } from '@icx/ui-core';
 import { AppNavbar } from '@/components/layout/AppNavbar';
 import { AppFooter } from '@/components/layout/AppFooter';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getStoredAccessToken, clearStoredSession } from '@/lib/api';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -29,6 +29,13 @@ export default function CustomerUnifiedDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const token = getStoredAccessToken();
+    if (!token) {
+      clearStoredSession();
+      router.replace('/auth/login?redirect=/Dashboard');
+      return;
+    }
+
     try {
       const raw = window.localStorage.getItem('icx_user');
       if (raw) {

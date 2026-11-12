@@ -33,7 +33,7 @@ export async function runSeed(): Promise<void> {
 
     await client.query<{ id: string }>(
       `INSERT INTO users (email, password_hash, role, phone, full_name, status, email_verified_at)
-       VALUES ('customer@icxstudios.com', $1, 'customer', '+2348010000004', 'Chukwudi Okafor', 'active', NOW())
+       VALUES ('customer@icxstudios.com', $1, 'customer', '08010000004', 'Firstname Lastname', 'active', NOW())
        ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash, role = 'customer', email_verified_at = NOW(), status = 'active'
        RETURNING id`,
       [defaultPasswordHash]

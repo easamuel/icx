@@ -1,6 +1,9 @@
 import { Router, type Request, type Response } from 'express';
 import {
   CreateBookingRequestSchema,
+  CreateDateBookingSchema,
+  BOOKING_PACKAGES,
+  BOOKING_TIME_PERIODS,
   PhotographerProfileUpdateSchema,
   CreateAvailabilitySlotSchema,
   type PhotographerProfileRecord,
@@ -11,11 +14,14 @@ import { query, withTransaction, recordAuditEvent } from '@icx/database';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import {
   requestPhotographerSlotTransaction,
+  requestDatePackageBookingTransaction,
   ConcurrencyConflictError,
 } from '../engines/concurrency.engine.js';
 import { dispatchNotification } from '../engines/notification.engine.js';
 
 export const bookingsRouter = Router();
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ============================================================================
 // 1. GET /api/v1/bookings/photographers (PB-01)
@@ -41,6 +47,7 @@ bookingsRouter.get(
        JOIN users u ON u.id = pp.user_id
        WHERE pp.approval_status = 'approved'
          AND u.status = 'active'
+         AND u.email_verified_at IS NOT NULL
          ${locationClause}
        ORDER BY pp.rating DESC, pp.created_at DESC`,
       params
@@ -58,6 +65,10 @@ bookingsRouter.get(
   '/photographers/:photographerId',
   async (req: Request, res: Response): Promise<void> => {
     const photographerId = String(req.params.photographerId || '');
+    if (!UUID_REGEX.test(photographerId)) {
+      res.status(400).json({ error: 'INVALID_PHOTOGRAPHER_ID' });
+      return;
+    }
 
     const profileRes = await query<
       PhotographerProfileRecord & { full_name: string }
@@ -65,7 +76,10 @@ bookingsRouter.get(
       `SELECT pp.*, u.full_name
        FROM photographer_profiles pp
        JOIN users u ON u.id = pp.user_id
-       WHERE pp.id = $1 AND pp.approval_status = 'approved'
+       WHERE pp.id = $1
+         AND pp.approval_status = 'approved'
+         AND u.status = 'active'
+         AND u.email_verified_at IS NOT NULL
        LIMIT 1`,
       [photographerId]
     );
@@ -96,18 +110,155 @@ bookingsRouter.get(
 );
 
 // ============================================================================
+// 2b. GET /api/v1/bookings/photographers/:photographerId/availability
+// Returns 30-day date availability + package & time-period rules.
+// ============================================================================
+bookingsRouter.get(
+  '/photographers/:photographerId/availability',
+  async (req: Request, res: Response): Promise<void> => {
+    const photographerId = String(req.params.photographerId || '');
+    if (!UUID_REGEX.test(photographerId)) {
+      res.status(400).json({ error: 'INVALID_PHOTOGRAPHER_ID' });
+      return;
+    }
+
+    const profileRes = await query<{ id: string }>(
+      `SELECT pp.id
+       FROM photographer_profiles pp
+       JOIN users u ON u.id = pp.user_id
+       WHERE pp.id = $1
+         AND pp.approval_status = 'approved'
+         AND u.status = 'active'
+         AND u.email_verified_at IS NOT NULL
+       LIMIT 1`,
+      [photographerId]
+    );
+
+    if (!profileRes.rows[0]) {
+      res.status(404).json({
+        error: 'PHOTOGRAPHER_NOT_FOUND',
+        message: 'Verified and approved photographer profile not found.',
+      });
+      return;
+    }
+
+    const bookingsRes = await query<{
+      booking_date: string;
+      package_type: string | null;
+      time_period: string | null;
+    }>(
+      `SELECT to_char(booking_date, 'YYYY-MM-DD') AS booking_date,
+              package_type,
+              time_period
+       FROM bookings
+       WHERE photographer_id = $1
+         AND booking_date >= CURRENT_DATE
+         AND booking_date <= CURRENT_DATE + INTERVAL '30 days'
+         AND status NOT IN ('cancelled', 'declined', 'expired')`,
+      [photographerId]
+    );
+
+    const byDate = new Map<string, Array<{ package_type: string | null; time_period: string | null }>>();
+    for (const row of bookingsRes.rows) {
+      const list = byDate.get(row.booking_date) || [];
+      list.push(row);
+      byDate.set(row.booking_date, list);
+    }
+
+    const dates: Array<{
+      date: string;
+      is_available: boolean;
+      available_packages: string[];
+      available_time_periods: string[];
+    }> = [];
+
+    const today = new Date();
+    for (let offset = 1; offset <= 30; offset++) {
+      const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + offset));
+      const dateStr = d.toISOString().slice(0, 10);
+      const dayBookings = byDate.get(dateStr) || [];
+
+      const hasFullDay = dayBookings.some((b) => b.package_type === 'Full day event booking');
+      if (hasFullDay) {
+        continue;
+      }
+
+      const takenPeriods = new Set(
+        dayBookings.map((b) => b.time_period).filter((p): p is string => Boolean(p))
+      );
+      const remainingPeriods = BOOKING_TIME_PERIODS.filter((p) => !takenPeriods.has(p));
+
+      if (remainingPeriods.length === 0) {
+        continue;
+      }
+
+      const availablePackages =
+        dayBookings.length === 0
+          ? [...BOOKING_PACKAGES]
+          : BOOKING_PACKAGES.filter((pkg) => pkg !== 'Full day event booking');
+
+      dates.push({
+        date: dateStr,
+        is_available: true,
+        available_packages: availablePackages,
+        available_time_periods: remainingPeriods,
+      });
+    }
+
+    res.status(200).json({ photographer_id: photographerId, dates });
+  }
+);
+
+// ============================================================================
 // 3. POST /api/v1/bookings (PB-02, PB-03, NF-04)
-// Requests a photographer slot and locks it for 48 hours inside a DB transaction.
+// Supports 3-step Date + Package + Time-Period bookings as well as slot holds.
 // ============================================================================
 bookingsRouter.post(
   '/',
   requireAuth,
   async (req: Request, res: Response): Promise<void> => {
-    const parsed = CreateBookingRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
+    const body = req.body as Record<string, unknown>;
+
+    if (body.booking_date || body.package_type) {
+      const parsedDate = CreateDateBookingSchema.safeParse(body);
+      if (!parsedDate.success) {
+        res.status(400).json({
+          error: 'VALIDATION_ERROR',
+          details: parsedDate.error.flatten(),
+        });
+        return;
+      }
+
+      try {
+        const result = await requestDatePackageBookingTransaction({
+          customerId: req.user!.sub,
+          photographerProfileId: parsedDate.data.photographer_id,
+          bookingDate: parsedDate.data.booking_date,
+          packageType: parsedDate.data.package_type,
+          timePeriod: parsedDate.data.time_period,
+          notes: parsedDate.data.notes,
+        });
+        res.status(201).json(result);
+        return;
+      } catch (error) {
+        if (error instanceof ConcurrencyConflictError) {
+          res.status(409).json({
+            error: error.code,
+            message: error.message,
+          });
+          return;
+        }
+        console.error('[ICX-BOOKINGS] Date package booking error:', error);
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+        return;
+      }
+    }
+
+    const parsed = CreateBookingRequestSchema.safeParse(body);
+    if (!parsed.success || !parsed.data.slot_id || !parsed.data.service_title) {
       res.status(400).json({
         error: 'VALIDATION_ERROR',
-        details: parsed.error.flatten(),
+        details: !parsed.success ? parsed.error.flatten() : 'slot_id and service_title are required.',
       });
       return;
     }
@@ -153,7 +304,7 @@ bookingsRouter.get(
        FROM bookings b
        JOIN photographer_profiles pp ON pp.id = b.photographer_id
        JOIN users u ON u.id = pp.user_id
-       JOIN availability_slots s ON s.id = b.slot_id
+       LEFT JOIN availability_slots s ON s.id = b.slot_id
        WHERE b.customer_id = $1
        ORDER BY b.created_at DESC`,
       [req.user!.sub]
@@ -265,13 +416,13 @@ bookingsRouter.get(
     // Note: Photographers NEVER see customer payment gateway details (PRD Privacy Rule)
     const inboxRes = await query(
       `SELECT b.id, b.service_title, b.price, b.commission_rate, b.commission_amount,
-              b.status, b.created_at,
+              b.status, b.created_at, b.booking_date, b.package_type, b.time_period,
               u.full_name AS customer_name,
               s.start_time, s.end_time, s.held_until,
               (SELECT COUNT(*) FROM photos p WHERE p.booking_id = b.id)::int AS deliverables_count
        FROM bookings b
        JOIN users u ON u.id = b.customer_id
-       JOIN availability_slots s ON s.id = b.slot_id
+       LEFT JOIN availability_slots s ON s.id = b.slot_id
        WHERE b.photographer_id = $1
        ORDER BY b.created_at DESC`,
       [profile.id]

@@ -506,52 +506,129 @@ uploadsRouter.get(
 // ============================================================================
 // 7. PUBLIC MEDIA STORAGE (EQUIPMENT & PHOTOGRAPHER PORTFOLIO IMAGES)
 // ============================================================================
+const ALLOWED_PUBLIC_IMAGE_MIMES = new Map<string, string>([
+  ['image/jpeg', '.jpg'],
+  ['image/jpg', '.jpg'],
+  ['image/png', '.png'],
+  ['image/webp', '.webp'],
+]);
+
+function hasValidImageMagicBytes(buffer: Buffer, ext: string): boolean {
+  if (buffer.byteLength < 12) return false;
+  if (ext === '.jpg') {
+    return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+  if (ext === '.png') {
+    return (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    );
+  }
+  if (ext === '.webp') {
+    return (
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+    );
+  }
+  return false;
+}
+
+async function savePublicImageAsset(
+  base64Data: string,
+  maxBytes: number
+): Promise<{ url: string; filename: string }> {
+  const match = base64Data.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,/);
+  const rawMime = match?.[1];
+  if (!rawMime) {
+    throw Object.assign(new Error('Invalid image data URI. Only JPEG, PNG, and WEBP are supported.'), {
+      statusCode: 400,
+      code: 'INVALID_IMAGE_TYPE',
+    });
+  }
+
+  const ext = ALLOWED_PUBLIC_IMAGE_MIMES.get(rawMime.toLowerCase());
+  if (!ext) {
+    throw Object.assign(new Error('Unsupported image format. Use JPEG, PNG, or WEBP.'), {
+      statusCode: 400,
+      code: 'INVALID_IMAGE_TYPE',
+    });
+  }
+
+  const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
+  const buffer = Buffer.from(cleanBase64, 'base64');
+
+  if (buffer.byteLength === 0 || buffer.byteLength > maxBytes) {
+    throw Object.assign(
+      new Error(`Image must be between 1 byte and ${Math.round(maxBytes / (1024 * 1024))}MB.`),
+      { statusCode: 413, code: 'FILE_TOO_LARGE' }
+    );
+  }
+
+  if (!hasValidImageMagicBytes(buffer, ext)) {
+    throw Object.assign(new Error('Uploaded file content does not match its declared image format.'), {
+      statusCode: 400,
+      code: 'INVALID_IMAGE_SIGNATURE',
+    });
+  }
+
+  const mediaDir = path.resolve(process.cwd(), 'storage/public_media');
+  await fsp.mkdir(mediaDir, { recursive: true });
+
+  const safeName = `${crypto.randomUUID()}${ext}`;
+  const filePath = path.join(mediaDir, safeName);
+  await fsp.writeFile(filePath, buffer);
+
+  return {
+    url: `/api/v1/uploads/media/${safeName}`,
+    filename: safeName,
+  };
+}
+
+uploadsRouter.post(
+  '/portfolio-proof',
+  rateLimiter({ scope: 'portfolio_proof_upload', windowSeconds: 300, maxRequests: 30 }),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { base64Data } = req.body as { base64Data?: string };
+      if (!base64Data) {
+        res.status(400).json({ error: 'MISSING_DATA', message: 'base64Data is required.' });
+        return;
+      }
+      const saved = await savePublicImageAsset(base64Data, 10 * 1024 * 1024);
+      res.status(201).json(saved);
+    } catch (error) {
+      const status = (error as { statusCode?: number }).statusCode || 500;
+      const code = (error as { code?: string }).code || 'MEDIA_SAVE_FAILED';
+      res.status(status).json({
+        error: code,
+        message: error instanceof Error ? error.message : 'Failed to save proof-of-work image.',
+      });
+    }
+  }
+);
+
 uploadsRouter.post(
   '/media',
   requireAuth,
   rateLimiter({ scope: 'media_upload', windowSeconds: 60, maxRequests: 60 }),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { base64Data, filename } = req.body as {
-        base64Data?: string;
-        filename?: string;
-      };
+      const { base64Data } = req.body as { base64Data?: string };
 
       if (!base64Data) {
         res.status(400).json({ error: 'MISSING_DATA', message: 'base64Data is required.' });
         return;
       }
 
-      let mimeType = 'image/jpeg';
-      let ext = '.jpg';
-      const match = base64Data.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,/);
-      if (match) {
-        mimeType = match[1];
-        if (mimeType.includes('png')) ext = '.png';
-        else if (mimeType.includes('webp')) ext = '.webp';
-        else if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = '.jpg';
-      }
-
-      const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, '');
-      const buffer = Buffer.from(cleanBase64, 'base64');
-
-      if (buffer.byteLength > 20 * 1024 * 1024) {
-        res.status(413).json({ error: 'FILE_TOO_LARGE', message: 'Image must be under 20MB.' });
-        return;
-      }
-
-      const mediaDir = path.resolve(process.cwd(), 'storage/public_media');
-      await fsp.mkdir(mediaDir, { recursive: true });
-
-      const safeName = `${crypto.randomUUID()}${ext}`;
-      const filePath = path.join(mediaDir, safeName);
-      await fsp.writeFile(filePath, buffer);
-
-      const mediaUrl = `/api/v1/uploads/media/${safeName}`;
-      res.status(201).json({ url: mediaUrl, filename: safeName });
+      const saved = await savePublicImageAsset(base64Data, 20 * 1024 * 1024);
+      res.status(201).json(saved);
     } catch (error) {
-      res.status(500).json({
-        error: 'MEDIA_SAVE_FAILED',
+      const status = (error as { statusCode?: number }).statusCode || 500;
+      const code = (error as { code?: string }).code || 'MEDIA_SAVE_FAILED';
+      res.status(status).json({
+        error: code,
         message: error instanceof Error ? error.message : 'Failed to save media asset.',
       });
     }

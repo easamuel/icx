@@ -14,7 +14,12 @@ import { formatNaira } from '@icx/ui-core';
 import type { EquipmentItemRecord, RentalRecord } from '@icx/shared-types';
 import { AppNavbar } from '@/components/layout/AppNavbar';
 import { AppFooter } from '@/components/layout/AppFooter';
-import { apiFetch, ApiError } from '@/lib/api';
+import {
+  apiFetch,
+  ApiError,
+  sanitizeNigerianPhoneInput,
+  validateNigerianPhone,
+} from '@/lib/api';
 
 interface DayAvailability {
   date: string;
@@ -112,6 +117,11 @@ export default function EquipmentRentalPage() {
   async function handleCreate30MinHold(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedItem) return;
+    const phoneErr = validateNigerianPhone(phone);
+    if (phoneErr) {
+      setError(phoneErr);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -400,22 +410,29 @@ export default function EquipmentRentalPage() {
                           required
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
-                          placeholder="Chukwudi Okafor"
+                          placeholder="Firstname Lastname"
                           className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
                         />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-zinc-900">
-                          Active Phone Number
+                          Active Nigerian Phone Number (11 Digits)
                         </label>
                         <input
                           type="tel"
+                          inputMode="numeric"
+                          maxLength={11}
                           required
                           value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="+234 800 000 0000"
+                          onChange={(e) => setPhone(sanitizeNigerianPhoneInput(e.target.value))}
+                          placeholder="08012345678"
                           className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
                         />
+                        {phone.length === 11 && validateNigerianPhone(phone) && (
+                          <p className="mt-1 text-[11px] text-red-600 font-medium">
+                            {validateNigerianPhone(phone)}
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-zinc-900">

@@ -102,6 +102,9 @@ export default function AdminExecutiveDashboardPage() {
   const [bookings, setBookings] = useState<Array<Record<string, any>>>([]);
   const [jobs, setJobs] = useState<Array<Record<string, any>>>([]);
   const [photographers, setPhotographers] = useState<Array<Record<string, any>>>([]);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [rejectingProfileId, setRejectingProfileId] = useState<string | null>(null);
+  const [rejectionReasonText, setRejectionReasonText] = useState('');
   const [equipment, setEquipment] = useState<Array<Record<string, any>>>([]);
   const [rentals, setRentals] = useState<Array<Record<string, any>>>([]);
   const [depositPct, setDepositPct] = useState(70);
@@ -225,13 +228,27 @@ export default function AdminExecutiveDashboardPage() {
     await loadAdminData();
   }
 
-  async function handlePhotographerApproval(profileId: string, approvalStatus: string) {
-    await apiFetch(`/admin/photographers/${profileId}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ approval_status: approvalStatus }),
-    });
-    setStatusBanner(`Photographer profile updated to ${approvalStatus}`);
-    await loadAdminData();
+  async function handlePhotographerApproval(
+    profileId: string,
+    approvalStatus: string,
+    rejectionReason?: string
+  ) {
+    setError(null);
+    try {
+      await apiFetch(`/admin/photographers/${profileId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          approval_status: approvalStatus,
+          rejection_reason: rejectionReason,
+        }),
+      });
+      setRejectingProfileId(null);
+      setRejectionReasonText('');
+      setStatusBanner(`Photographer profile updated to ${approvalStatus}`);
+      await loadAdminData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to update photographer status.');
+    }
   }
 
   async function handleCreateEquipment(e: React.FormEvent) {
@@ -668,7 +685,7 @@ export default function AdminExecutiveDashboardPage() {
                   User Accounts &amp; Role Management ({users.length})
                 </h2>
                 <p className="mt-1 text-xs text-zinc-600">
-                  Manage accounts, verify emails in 1-click, and upgrade customer profiles to certified ICX photographers.
+                  Manage accounts and verify emails in 1-click. Photographers must onboard through the dedicated verification pipeline.
                 </p>
               </div>
 
@@ -820,21 +837,6 @@ export default function AdminExecutiveDashboardPage() {
                           <LogIn className="h-3.5 w-3.5 text-emerald-400" />
                           <span>Login As User</span>
                         </button>
-
-                        {/* 1-Click Upgrade to Photographer for Clients */}
-                        {isCustomer && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void handleModifyUser(u.id, { role: 'photographer' })
-                            }
-                            className="inline-flex items-center gap-1.5 rounded-full border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-black text-purple-900 hover:bg-purple-100 transition-colors shadow-xs"
-                            title="Upgrade this client account into a certified ICX photographer with automated profile creation"
-                          >
-                            <Camera className="h-3.5 w-3.5 text-purple-700" />
-                            <span>Upgrade</span>
-                          </button>
-                        )}
 
                         {!isVerified && (
                           <button
@@ -1173,65 +1175,194 @@ export default function AdminExecutiveDashboardPage() {
 
         {/* TAB 5: PHOTOGRAPHER ONBOARDING APPROVALS */}
         {activeTab === 'photographers' && (
-          <div className="rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm space-y-4">
+          <div className="rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm space-y-5">
             <h2 className="text-base sm:text-lg font-black text-zinc-950">
-              Photographer Roster &amp; Applications ({photographers.length})
+              Photographer Roster &amp; Proof-of-Work Applications ({photographers.length})
             </h2>
-            {photographers.map((p) => (
-              <div
-                key={p.id}
-                className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0"
-              >
-                <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
-                  <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl overflow-hidden bg-zinc-200 shrink-0 border border-zinc-200 shadow-sm">
-                    <img
-                      src={p.avatar_url || (Array.isArray(p.portfolio_urls) && p.portfolio_urls[0]) || DEFAULT_PHOTOG_IMG}
-                      alt={p.full_name}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = DEFAULT_PHOTOG_IMG;
-                      }}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm sm:text-base font-black text-zinc-950 truncate">{p.full_name}</span>
-                      <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white shrink-0">
-                        {p.approval_status}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs font-semibold text-zinc-500 break-words">
-                      {p.email} • {p.location || 'Lagos, Nigeria'}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-600 line-clamp-2">{p.bio}</p>
-                  </div>
-                </div>
+            {photographers.map((p) => {
+              const proofImages = Array.isArray(p.portfolio_urls)
+                ? (p.portfolio_urls as string[]).filter(Boolean)
+                : [];
+              const emailVerified = Boolean(p.email_verified_at);
 
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
+              return (
+                <div
+                  key={p.id}
+                  className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 sm:p-6 space-y-4 min-w-0"
+                >
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+                      <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl overflow-hidden bg-zinc-200 shrink-0 border border-zinc-200 shadow-sm">
+                        <img
+                          src={p.avatar_url || proofImages[0] || DEFAULT_PHOTOG_IMG}
+                          alt={p.full_name}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = DEFAULT_PHOTOG_IMG;
+                          }}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm sm:text-base font-black text-zinc-950 truncate">
+                            {p.full_name}
+                          </span>
+                          <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white shrink-0">
+                            {p.approval_status}
+                          </span>
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                              emailVerified
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {emailVerified ? 'Email Verified' : 'Email Unverified'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold text-zinc-600 break-words">
+                          {p.email} • {p.phone || 'No phone'} • {p.location || 'Lagos, Nigeria'}
+                        </p>
+                        {(p.specialty || p.years_experience) && (
+                          <p className="text-xs font-bold text-zinc-800">
+                            {p.specialty || 'General'} • {p.years_experience ?? 0} yrs experience
+                          </p>
+                        )}
+                        <p className="text-xs text-zinc-600">{p.bio || 'No bio submitted.'}</p>
+                        {p.rejection_reason && (
+                          <p className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 mt-1">
+                            Rejection Reason: {p.rejection_reason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={!emailVerified}
+                        title={
+                          emailVerified
+                            ? 'Approve photographer profile'
+                            : 'Photographer must verify email before approval'
+                        }
+                        onClick={() => void handlePhotographerApproval(p.id, 'approved')}
+                        className="rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handlePhotographerApproval(p.id, 'suspended')}
+                        className="rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-black text-zinc-950 hover:bg-amber-600 transition-colors"
+                      >
+                        Suspend
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRejectingProfileId(p.id);
+                          setRejectionReasonText('');
+                        }}
+                        className="rounded-full border border-red-200 bg-red-50 px-3.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Proof-of-Work Gallery */}
+                  {proofImages.length > 0 && (
+                    <div className="pt-2 border-t border-zinc-200/70">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
+                        Proof-of-Work Portfolio ({proofImages.length} images — click to inspect)
+                      </p>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                        {proofImages.map((imgUrl, idx) => (
+                          <button
+                            key={`${p.id}-proof-${idx}`}
+                            type="button"
+                            onClick={() => setLightboxImage(imgUrl)}
+                            className="aspect-square rounded-xl overflow-hidden border border-zinc-200 bg-white hover:ring-2 hover:ring-zinc-950 transition-all"
+                          >
+                            <img
+                              src={imgUrl}
+                              alt={`${p.full_name} proof ${idx + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inline Rejection Reason Form */}
+                  {rejectingProfileId === p.id && (
+                    <div className="rounded-xl border border-red-200 bg-red-50/70 p-4 space-y-2">
+                      <label className="block text-xs font-bold text-red-900">
+                        Reason for Rejection (sent to applicant by email)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={rejectionReasonText}
+                        onChange={(e) => setRejectionReasonText(e.target.value)}
+                        placeholder="e.g., Please upload higher-resolution uncropped editorial samples..."
+                        className="w-full rounded-xl border border-red-200 bg-white px-3 py-2 text-xs text-zinc-950 focus:outline-none"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={rejectionReasonText.trim().length < 5}
+                          onClick={() =>
+                            void handlePhotographerApproval(
+                              p.id,
+                              'rejected',
+                              rejectionReasonText.trim()
+                            )
+                          }
+                          className="rounded-full bg-red-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-40"
+                        >
+                          Confirm Rejection
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRejectingProfileId(null)}
+                          className="rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-xs font-bold text-zinc-700"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Lightbox Modal for Proof-of-Work Inspection */}
+            {lightboxImage && (
+              <div
+                onClick={() => setLightboxImage(null)}
+                className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4"
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="relative max-w-4xl max-h-[90vh] bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl"
+                >
                   <button
                     type="button"
-                    onClick={() => void handlePhotographerApproval(p.id, 'approved')}
-                    className="rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 transition-colors"
+                    onClick={() => setLightboxImage(null)}
+                    className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-zinc-950 hover:bg-white"
                   >
-                    Approve
+                    Close
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void handlePhotographerApproval(p.id, 'suspended')}
-                    className="rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-black text-zinc-950 hover:bg-amber-600 transition-colors"
-                  >
-                    Suspend
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handlePhotographerApproval(p.id, 'rejected')}
-                    className="rounded-full border border-red-200 bg-red-50 px-3.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
-                  >
-                    Reject
-                  </button>
+                  <img
+                    src={lightboxImage}
+                    alt="Proof of work inspection"
+                    className="max-h-[85vh] w-auto object-contain"
+                  />
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
 

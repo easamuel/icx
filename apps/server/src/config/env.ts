@@ -32,6 +32,9 @@ const EnvSchema = z.object({
   TUS_UPLOAD_DIR: z.string().default('./storage/private/tus-staging'),
   WATERMARK_ASSET_PATH: z.string().default('./storage/private/system/watermark.png'),
   PAYSTACK_SECRET_KEY: z.string().default('sk_test_icx_placeholder_secret'),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CALLBACK_URL: z.string().optional(),
 });
 
 export const env = EnvSchema.parse(process.env);

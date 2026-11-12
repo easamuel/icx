@@ -12,11 +12,21 @@ export type NotificationTriggerId =
   | 'NT-05' // New editing job or revision request (Assigned editor)
   | 'NT-06' // New photographer application (Admin)
   | 'NT-07' // Photographer application approved (Photographer)
+  | 'NT-07-REJECT' // Photographer application rejected (Photographer)
   | 'NT-08' // Rental return reminder, 1 day before end date (Customer)
   | 'NT-AUTH-VERIFY' // Account registration email confirmation
   | 'NT-AUTH-RESET' // Password reset email
   | 'NT-AUTH-INVITE' // Admin staff invitation email
   | 'NT-ROLE-UPGRADE'; // User role upgraded email notification
+
+export function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 interface DispatchNotificationParams {
   triggerId: NotificationTriggerId;

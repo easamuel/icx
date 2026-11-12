@@ -1,3 +1,8 @@
+import {
+  isValidNigerianPhone,
+  normalizeNigerianPhone,
+} from '@icx/shared-types';
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
@@ -23,12 +28,33 @@ export function setStoredSession(accessToken: string, user: unknown): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem('icx_access_token', accessToken);
   window.localStorage.setItem('icx_user', JSON.stringify(user));
+  document.cookie = 'icx_logged_in=1; path=/; max-age=604800; SameSite=Lax';
 }
 
 export function clearStoredSession(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem('icx_access_token');
   window.localStorage.removeItem('icx_user');
+  document.cookie = 'icx_logged_in=; path=/; max-age=0; SameSite=Lax';
+}
+
+export function sanitizeNigerianPhoneInput(raw: string): string {
+  const cleaned = raw.replace(/[^\d+]/g, '');
+  if (cleaned.startsWith('+234') || (cleaned.startsWith('234') && cleaned.length >= 13)) {
+    return normalizeNigerianPhone(cleaned).slice(0, 11);
+  }
+  return cleaned.replace(/\D/g, '').slice(0, 11);
+}
+
+export function validateNigerianPhone(raw: string): string | null {
+  const normalized = sanitizeNigerianPhoneInput(raw);
+  if (normalized.length !== 11) {
+    return 'Phone number must be exactly 11 digits (e.g. 0803XXXXXXX).';
+  }
+  if (!isValidNigerianPhone(normalized)) {
+    return 'Enter a valid active Nigerian mobile number (e.g. 0803XXXXXXX, 0812XXXXXXX, 0703XXXXXXX, 0902XXXXXXX).';
+  }
+  return null;
 }
 
 export async function apiFetch<T>(

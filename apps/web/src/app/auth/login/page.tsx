@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
@@ -29,6 +29,26 @@ export default function LoginPage() {
   const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [redirectTo, setRedirectTo] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const redir = params.get('redirect') || '';
+    if (redir.startsWith('/')) {
+      setRedirectTo(redir);
+    }
+    const errParam = params.get('error');
+    if (errParam) {
+      const errorMessages: Record<string, string> = {
+        google_not_configured: 'Google Sign-In is not configured on this environment yet.',
+        google_cancelled: 'Google Sign-In was cancelled.',
+        admin_oauth_forbidden: 'Executive accounts cannot sign in via public Google OAuth.',
+        account_suspended: 'This account has been suspended by an administrator.',
+      };
+      setError(errorMessages[errParam] || 'Unable to complete Google Sign-In. Please try again.');
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,7 +82,9 @@ export default function LoginPage() {
         }
 
         setStoredSession(res.accessToken, res.user);
-        if (res.user.role === 'editor') {
+        if (redirectTo && redirectTo.startsWith('/')) {
+          router.push(redirectTo);
+        } else if (res.user.role === 'editor') {
           router.push('/workspace/editor');
         } else if (res.user.role === 'photographer') {
           router.push('/portal/photographer');
@@ -216,6 +238,41 @@ export default function LoginPage() {
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </form>
+
+              <div className="relative flex items-center py-1">
+                <div className="flex-grow border-t border-zinc-200" />
+                <span className="mx-3 shrink-0 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                  Or continue with
+                </span>
+                <div className="flex-grow border-t border-zinc-200" />
+              </div>
+
+              <a
+                href={`/api/v1/auth/google?intent=login${
+                  redirectTo ? `&redirect=${encodeURIComponent(redirectTo)}` : ''
+                }`}
+                className="w-full inline-flex items-center justify-center gap-2.5 rounded-full border border-zinc-300 bg-white py-3 text-sm font-bold text-zinc-950 hover:bg-zinc-50 transition-all"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+                  />
+                </svg>
+                <span>Continue with Google</span>
+              </a>
 
               <div className="border-t border-zinc-200 pt-5 text-center text-xs text-zinc-600">
                 New to ICX Studios?{' '}

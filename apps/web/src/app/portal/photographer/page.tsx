@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Check,
   X,
@@ -84,6 +85,7 @@ function formatSlotDate(startIso: string, endIso?: string) {
 }
 
 export default function PhotographerPortalPage() {
+  const router = useRouter();
   const [data, setData] = useState<PhotographerWorkspaceData | null>(null);
   const [slotStart, setSlotStart] = useState('');
   const [slotEnd, setSlotEnd] = useState('');
@@ -103,6 +105,10 @@ export default function PhotographerPortalPage() {
       const res = await apiFetch<PhotographerWorkspaceData>(
         '/bookings/photographer/workspace'
       );
+      if (res.profile.approval_status !== 'approved') {
+        router.replace('/photographer/status');
+        return;
+      }
       setData(res);
       setBio(res.profile.bio || '');
       setLocation(res.profile.location || '');

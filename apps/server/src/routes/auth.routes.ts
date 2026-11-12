@@ -5,6 +5,7 @@ import {
   RegisterSchema,
   LoginSchema,
   AdminInviteStaffSchema,
+  NigerianPhoneSchema,
   type UserRecord,
 } from '@icx/shared-types';
 import { query, withTransaction, recordAuditEvent } from '@icx/database';
@@ -25,6 +26,7 @@ import { env } from '../config/env.js';
 import {
   dispatchNotification,
   buildStudioEmailTemplate,
+  escapeHtml,
 } from '../engines/notification.engine.js';
 
 export const authRouter = Router();
@@ -38,6 +40,13 @@ function setRefreshCookie(res: Response, refreshToken: string) {
     secure: env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/api/v1/auth',
+    maxAge: env.JWT_REFRESH_EXPIRES_SECONDS * 1000,
+  });
+  res.cookie('icx_logged_in', '1', {
+    httpOnly: false,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
     maxAge: env.JWT_REFRESH_EXPIRES_SECONDS * 1000,
   });
 }
@@ -58,7 +67,18 @@ authRouter.post(
       return;
     }
 
-    const { email, password, full_name, phone, role } = parsed.data;
+    const {
+      email,
+      password,
+      full_name,
+      phone,
+      role,
+      bio,
+      location,
+      specialty,
+      years_experience,
+      portfolio_urls,
+    } = parsed.data;
 
     try {
       const existing = await query('SELECT 1 FROM users WHERE email = $1', [email]);
@@ -91,9 +111,18 @@ authRouter.post(
         // AC-04: Photographers apply through sign-up form; profile starts as 'pending'
         if (role === 'photographer') {
           await client.query(
-            `INSERT INTO photographer_profiles (user_id, approval_status)
-             VALUES ($1, 'pending')`,
-            [createdUser.id]
+            `INSERT INTO photographer_profiles (
+               user_id, bio, location, specialty, years_experience, portfolio_urls, approval_status, submitted_at
+             )
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, 'pending', NOW())`,
+            [
+              createdUser.id,
+              bio || null,
+              location || null,
+              specialty || null,
+              years_experience ?? 0,
+              JSON.stringify(portfolio_urls || []),
+            ]
           );
         }
 
@@ -121,7 +150,7 @@ authRouter.post(
 
       // Dispatch real branded Email Confirmation via mail.icxora.com SMTP
       const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
-      const verifyUrl = `${webUrl}/account/security?verify=${verificationToken}`;
+      const verifyUrl = `${webUrl}/auth/verify-email?token=${verificationToken}`;
 
       void dispatchNotification({
         triggerId: 'NT-AUTH-VERIFY',
@@ -129,7 +158,7 @@ authRouter.post(
         recipientUserId: newUser.id,
         subject: 'Confirm Your ICX Studios Account',
         htmlBody: buildStudioEmailTemplate({
-          heading: `Welcome to ICX Studios, ${newUser.full_name}.`,
+          heading: `Welcome to ICX Studios, ${escapeHtml(newUser.full_name)}.`,
           subheading: 'Confirm your email address to activate full studio privileges.',
           bodyHtml: `
             <p style="margin:0 0 16px;">Thank you for creating your <strong>${newUser.role === 'photographer' ? 'Partner Photographer' : 'Client Studio'}</strong> account on <strong>ICX Studios</strong>.</p>
@@ -152,11 +181,11 @@ authRouter.post(
           subject: `New Photographer Application: ${newUser.full_name}`,
           htmlBody: buildStudioEmailTemplate({
             heading: 'New Photographer Roster Application',
-            subheading: `${newUser.full_name} (${newUser.email}) has applied to join the ICX Studios Photographer Directory.`,
+            subheading: `${escapeHtml(newUser.full_name)} (${escapeHtml(newUser.email)}) has applied to join the ICX Studios Photographer Directory.`,
             bodyHtml: `
-              <p style="margin:0 0 12px;"><strong>Applicant:</strong> ${newUser.full_name}</p>
-              <p style="margin:0 0 12px;"><strong>Email:</strong> ${newUser.email}</p>
-              <p style="margin:0 0 12px;"><strong>Phone:</strong> ${newUser.phone}</p>
+              <p style="margin:0 0 12px;"><strong>Applicant:</strong> ${escapeHtml(newUser.full_name)}</p>
+              <p style="margin:0 0 12px;"><strong>Email:</strong> ${escapeHtml(newUser.email)}</p>
+              <p style="margin:0 0 12px;"><strong>Phone:</strong> ${escapeHtml(newUser.phone || '')}</p>
               <p style="margin:0;">Review and approve or reject this photographer profile from the Executive Control Center.</p>
             `,
             ctaLabel: 'Open Executive Admin Console',
@@ -438,6 +467,7 @@ authRouter.post('/logout', async (req: Request, res: Response): Promise<void> =>
     }
 
     res.clearCookie('icx_refresh_token', { path: '/api/v1/auth' });
+    res.clearCookie('icx_logged_in', { path: '/' });
     res.status(200).json({ status: 'logged_out' });
   } catch {
     res.status(200).json({ status: 'logged_out' });
@@ -472,6 +502,16 @@ authRouter.post('/verify-email', async (req: Request, res: Response): Promise<vo
   );
   await redis.del(RedisKeys.emailVerificationToken(token));
 
+  const verifiedUser = updatedRes.rows[0] || null;
+  let approvalStatus: string | null = null;
+  if (verifiedUser?.role === 'photographer') {
+    const ppRes = await query<{ approval_status: string }>(
+      'SELECT approval_status FROM photographer_profiles WHERE user_id = $1 LIMIT 1',
+      [verifiedUser.id]
+    );
+    approvalStatus = ppRes.rows[0]?.approval_status || 'pending';
+  }
+
   await recordAuditEvent({
     actorId: userId,
     action: 'EMAIL_VERIFIED',
@@ -481,7 +521,8 @@ authRouter.post('/verify-email', async (req: Request, res: Response): Promise<vo
 
   res.status(200).json({
     status: 'verified',
-    user: updatedRes.rows[0] || null,
+    user: verifiedUser,
+    approval_status: approvalStatus,
   });
 });
 
@@ -491,20 +532,21 @@ authRouter.get('/verify-email', async (req: Request, res: Response): Promise<voi
   const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
 
   if (!token) {
-    res.redirect(`${webUrl}/account/security?error=missing_token`);
+    res.redirect(`${webUrl}/auth/verify-email?error=missing_token`);
     return;
   }
 
   const userId = await redis.get(RedisKeys.emailVerificationToken(token));
   if (!userId) {
-    res.redirect(`${webUrl}/account/security?error=expired_token`);
+    res.redirect(`${webUrl}/auth/verify-email?error=expired_token`);
     return;
   }
 
-  await query(
+  const userRes = await query<{ role: string }>(
     `UPDATE users
      SET email_verified_at = COALESCE(email_verified_at, NOW())
-     WHERE id = $1`,
+     WHERE id = $1
+     RETURNING role`,
     [userId]
   );
   await redis.del(RedisKeys.emailVerificationToken(token));
@@ -516,7 +558,8 @@ authRouter.get('/verify-email', async (req: Request, res: Response): Promise<voi
     targetId: userId,
   });
 
-  res.redirect(`${webUrl}/account/security?verified=1`);
+  const role = userRes.rows[0]?.role || 'customer';
+  res.redirect(`${webUrl}/auth/verify-email?verified=1&role=${encodeURIComponent(role)}`);
 });
 
 // ============================================================================
@@ -594,7 +637,7 @@ authRouter.post(
     );
 
     const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
-    const verifyUrl = `${webUrl}/account/security?verify=${verificationToken}`;
+    const verifyUrl = `${webUrl}/auth/verify-email?token=${verificationToken}`;
 
     await dispatchNotification({
       triggerId: 'NT-AUTH-VERIFY',
@@ -1063,6 +1106,21 @@ authRouter.patch(
   requireAuth,
   async (req: Request, res: Response): Promise<void> => {
     const { full_name, phone } = req.body as { full_name?: string; phone?: string };
+    let normalizedPhone: string | null = null;
+    if (phone !== undefined && phone.trim() !== '') {
+      const phoneParsed = NigerianPhoneSchema.safeParse(phone);
+      if (!phoneParsed.success) {
+        res.status(400).json({
+          error: 'INVALID_PHONE',
+          message:
+            phoneParsed.error.issues[0]?.message ||
+            'Enter a valid 11-digit Nigerian phone number.',
+        });
+        return;
+      }
+      normalizedPhone = phoneParsed.data;
+    }
+
     const updated = await query<UserRecord>(
       `UPDATE users
        SET full_name = COALESCE($1, full_name),
@@ -1070,7 +1128,7 @@ authRouter.patch(
            updated_at = NOW()
        WHERE id = $3
        RETURNING id, email, role, phone, full_name, two_factor_enabled, status, email_verified_at, created_at, updated_at`,
-      [full_name?.trim() || null, phone?.trim() || null, req.user!.sub]
+      [full_name?.trim() || null, normalizedPhone, req.user!.sub]
     );
 
     const user = updated.rows[0];
@@ -1144,4 +1202,226 @@ authRouter.post(
     res.status(200).json({ status: 'password_changed', message: 'Password updated successfully.' });
   }
 );
+
+// ============================================================================
+// GOOGLE OAUTH 2.0 (Sign In / Sign Up with Google)
+// ============================================================================
+authRouter.get('/google', async (req: Request, res: Response): Promise<void> => {
+  const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
+  const clientId = env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const callbackUrl =
+    env.GOOGLE_CALLBACK_URL ||
+    process.env.GOOGLE_CALLBACK_URL ||
+    `${webUrl}/api/v1/auth/google/callback`;
+
+  if (!clientId) {
+    res.redirect(`${webUrl}/auth/login?error=google_not_configured`);
+    return;
+  }
+
+  const intent = String(req.query.intent || 'login');
+  const redirectTarget = String(req.query.redirect || '').startsWith('/')
+    ? String(req.query.redirect)
+    : '';
+  const state = crypto.randomBytes(24).toString('hex');
+
+  await redis.set(
+    `oauth:google:state:${state}`,
+    JSON.stringify({ intent, redirect: redirectTarget }),
+    'EX',
+    600
+  );
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: callbackUrl,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    prompt: 'select_account',
+  });
+
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+authRouter.get('/google/callback', async (req: Request, res: Response): Promise<void> => {
+  const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
+  const code = String(req.query.code || '');
+  const state = String(req.query.state || '');
+
+  if (!code || !state) {
+    res.redirect(`${webUrl}/auth/login?error=google_cancelled`);
+    return;
+  }
+
+  const statePayloadRaw = await redis.get(`oauth:google:state:${state}`);
+  if (!statePayloadRaw) {
+    res.redirect(`${webUrl}/auth/login?error=google_state_expired`);
+    return;
+  }
+  await redis.del(`oauth:google:state:${state}`);
+
+  const statePayload = JSON.parse(statePayloadRaw) as { intent?: string; redirect?: string };
+  const clientId = env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+  const callbackUrl =
+    env.GOOGLE_CALLBACK_URL ||
+    process.env.GOOGLE_CALLBACK_URL ||
+    `${webUrl}/api/v1/auth/google/callback`;
+
+  if (!clientId || !clientSecret) {
+    res.redirect(`${webUrl}/auth/login?error=google_not_configured`);
+    return;
+  }
+
+  try {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: callbackUrl,
+        grant_type: 'authorization_code',
+      }).toString(),
+    });
+
+    if (!tokenRes.ok) {
+      res.redirect(`${webUrl}/auth/login?error=google_token_exchange_failed`);
+      return;
+    }
+
+    const tokenJson = (await tokenRes.json()) as { access_token?: string };
+    if (!tokenJson.access_token) {
+      res.redirect(`${webUrl}/auth/login?error=google_token_missing`);
+      return;
+    }
+
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokenJson.access_token}` },
+    });
+
+    if (!userInfoRes.ok) {
+      res.redirect(`${webUrl}/auth/login?error=google_userinfo_failed`);
+      return;
+    }
+
+    const profile = (await userInfoRes.json()) as {
+      email?: string;
+      email_verified?: boolean;
+      name?: string;
+    };
+
+    if (!profile.email) {
+      res.redirect(`${webUrl}/auth/login?error=google_email_missing`);
+      return;
+    }
+
+    const normalizedEmail = profile.email.toLowerCase().trim();
+    const existingRes = await query<UserRecord>(
+      'SELECT * FROM users WHERE email = $1 LIMIT 1',
+      [normalizedEmail]
+    );
+    let user = existingRes.rows[0];
+
+    if (user && user.role === 'admin') {
+      res.redirect(`${webUrl}/auth/login?error=admin_oauth_forbidden`);
+      return;
+    }
+
+    if (user && user.status !== 'active') {
+      res.redirect(`${webUrl}/auth/login?error=account_suspended`);
+      return;
+    }
+
+    if (!user) {
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await argon2.hash(randomPassword, {
+        type: argon2.argon2id,
+        memoryCost: 65536,
+        timeCost: 3,
+        parallelism: 4,
+      });
+
+      const createdRes = await query<UserRecord>(
+        `INSERT INTO users (email, password_hash, role, full_name, status, email_verified_at)
+         VALUES ($1, $2, 'customer', $3, 'active', $4)
+         RETURNING *`,
+        [
+          normalizedEmail,
+          passwordHash,
+          (profile.name || normalizedEmail.split('@')[0]).trim().slice(0, 150),
+          profile.email_verified ? new Date() : null,
+        ]
+      );
+      user = createdRes.rows[0]!;
+
+      await recordAuditEvent({
+        actorId: user.id,
+        action: 'USER_REGISTERED_GOOGLE',
+        targetEntity: 'users',
+        targetId: user.id,
+        details: { email: normalizedEmail },
+      });
+    } else if (profile.email_verified && !user.email_verified_at) {
+      const updatedRes = await query<UserRecord>(
+        `UPDATE users SET email_verified_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *`,
+        [user.id]
+      );
+      user = updatedRes.rows[0] || user;
+    }
+
+    const tokens = await issueTokenPair(user);
+    setRefreshCookie(res, tokens.refreshToken);
+
+    const exchangeCode = crypto.randomBytes(24).toString('hex');
+    await redis.set(
+      `oauth:google:exchange:${exchangeCode}`,
+      JSON.stringify({
+        user: {
+          id: user.id,
+          email: user.email,
+          full_name: user.full_name,
+          phone: user.phone,
+          role: user.role,
+          status: user.status,
+          email_verified_at: user.email_verified_at,
+          two_factor_enabled: user.two_factor_enabled,
+        },
+        accessToken: tokens.accessToken,
+        redirect: statePayload.redirect || '',
+      }),
+      'EX',
+      120
+    );
+
+    res.redirect(`${webUrl}/auth/google-callback?code=${encodeURIComponent(exchangeCode)}`);
+  } catch (error) {
+    console.error('[ICX-AUTH] Google OAuth callback error:', error);
+    res.redirect(`${webUrl}/auth/login?error=google_oauth_error`);
+  }
+});
+
+authRouter.post('/google/exchange', async (req: Request, res: Response): Promise<void> => {
+  const code = String(req.body?.code || '').trim();
+  if (!code) {
+    res.status(400).json({ error: 'MISSING_CODE' });
+    return;
+  }
+
+  const raw = await redis.get(`oauth:google:exchange:${code}`);
+  if (!raw) {
+    res.status(400).json({ error: 'INVALID_OR_EXPIRED_CODE' });
+    return;
+  }
+  await redis.del(`oauth:google:exchange:${code}`);
+
+  const payload = JSON.parse(raw) as {
+    user: Record<string, unknown>;
+    accessToken: string;
+    redirect: string;
+  };
+  res.status(200).json(payload);
+});
 

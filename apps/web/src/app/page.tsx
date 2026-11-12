@@ -188,7 +188,7 @@ export default function HomePage() {
                     href="/editing"
                     className="inline-flex items-center gap-2.5 rounded-full bg-white px-6 py-4 text-sm font-black text-zinc-950 shadow-xl hover:bg-zinc-200 transition-all"
                   >
-                    <span>Order Photo Retouching</span>
+                    <span className="capitalize">photo retouching</span>
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                   <Link
@@ -201,7 +201,7 @@ export default function HomePage() {
                     href="/rentals"
                     className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950 px-5 py-4 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-white transition-all"
                   >
-                    <span>Rent Cinema Gear</span>
+                    <span className="capitalize">rent a gear</span>
                   </Link>
                 </div>
 

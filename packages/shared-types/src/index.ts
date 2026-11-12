@@ -122,19 +122,99 @@ export function canTransitionRental(from: RentalStatus, to: RentalStatus): boole
 // 3. ZOD VALIDATION SCHEMAS (API & SHARED CONTRACTS)
 // ============================================================================
 
-export const RegisterSchema = z.object({
-  email: z.string().email().max(255).transform((v) => v.toLowerCase().trim()),
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(128)
-    .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Must contain at least one digit'),
-  full_name: z.string().min(2).max(150).trim(),
-  phone: z.string().min(7).max(30).trim(),
-  role: z.enum(['customer', 'photographer']).default('customer'),
-});
+const NIGERIAN_PHONE_REGEX = /^0(70[1-9]|80[2-9]|81[0-9]|90[1-9]|91[1-356])\d{7}$/;
+
+const DUMMY_NIGERIAN_PHONES = new Set([
+  '08012345678',
+  '08098765432',
+  '08123456789',
+  '07012345678',
+  '09012345678',
+]);
+
+export function normalizeNigerianPhone(raw: string): string {
+  const digits = raw.replace(/[\s\-().+]/g, '');
+  if (digits.startsWith('234') && digits.length === 13) {
+    return `0${digits.slice(3)}`;
+  }
+  return digits;
+}
+
+export function isValidNigerianPhone(raw: string): boolean {
+  const normalized = normalizeNigerianPhone(raw);
+  if (!NIGERIAN_PHONE_REGEX.test(normalized)) {
+    return false;
+  }
+  // Reject repeated trailing digits (e.g. 08000000000, 08111111111) or known dummy sequences
+  if (/^0\d{2}(\d)\1{7}$/.test(normalized) || /(\d)\1{6,}$/.test(normalized)) {
+    return false;
+  }
+  if (DUMMY_NIGERIAN_PHONES.has(normalized)) {
+    return false;
+  }
+  return true;
+}
+
+export const NigerianPhoneSchema = z
+  .string()
+  .trim()
+  .transform(normalizeNigerianPhone)
+  .refine(isValidNigerianPhone, {
+    message:
+      'Enter a valid 11-digit Nigerian phone number (e.g., 0803XXXXXXX, 0812XXXXXXX, 0703XXXXXXX, 0902XXXXXXX).',
+  });
+
+export const RegisterSchema = z
+  .object({
+    email: z.string().email().max(255).transform((v) => v.toLowerCase().trim()),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .max(128)
+      .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Must contain at least one lowercase letter')
+      .regex(/[0-9]/, 'Must contain at least one digit'),
+    full_name: z.string().min(2).max(150).trim(),
+    phone: NigerianPhoneSchema,
+    role: z.enum(['customer', 'photographer']).default('customer'),
+    bio: z.string().max(2000).trim().optional(),
+    location: z.string().max(150).trim().optional(),
+    specialty: z.string().max(150).trim().optional(),
+    years_experience: z.coerce.number().int().min(0).max(60).optional(),
+    portfolio_urls: z.array(z.string().min(1)).max(10).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.role === 'photographer') {
+      if (!data.location || data.location.length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['location'],
+          message: 'Primary city / location is required for photographers.',
+        });
+      }
+      if (!data.specialty || data.specialty.length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['specialty'],
+          message: 'Photography specialty is required.',
+        });
+      }
+      if (!data.bio || data.bio.length < 20) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['bio'],
+          message: 'Please provide a professional bio of at least 20 characters.',
+        });
+      }
+      if (!data.portfolio_urls || data.portfolio_urls.length < 3 || data.portfolio_urls.length > 10) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['portfolio_urls'],
+          message: 'Upload between 3 and 10 proof-of-work portfolio images.',
+        });
+      }
+    }
+  });
 
 export const LoginSchema = z.object({
   email: z.string().email().transform((v) => v.toLowerCase().trim()),
@@ -181,15 +261,55 @@ export const CreateRevisionRequestSchema = z.object({
   notes: z.string().min(5).max(1500),
 });
 
+export const BOOKING_PACKAGES = [
+  'Studio walk in',
+  'Full day event booking',
+  'Half day event booking',
+] as const;
+
+export const BOOKING_TIME_PERIODS = [
+  'Morning (9am - 1pm)',
+  'Afternoon (2pm - 6pm)',
+  'Evening (6pm - 10pm)',
+] as const;
+
+export type BookingPackageType = (typeof BOOKING_PACKAGES)[number];
+export type BookingTimePeriod = (typeof BOOKING_TIME_PERIODS)[number];
+
 export const CreateBookingRequestSchema = z.object({
   photographer_id: z.string().uuid(),
-  slot_id: z.string().uuid(),
-  service_title: z.string().min(2).max(150),
+  slot_id: z.string().uuid().optional(),
+  booking_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD').optional(),
+  package_type: z.enum(BOOKING_PACKAGES).optional(),
+  time_period: z.enum(BOOKING_TIME_PERIODS).optional(),
+  service_title: z.string().min(2).max(150).optional(),
+  notes: z.string().max(1000).optional(),
 });
+
+export const CreateDateBookingSchema = z
+  .object({
+    photographer_id: z.string().uuid(),
+    booking_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
+    package_type: z.enum(BOOKING_PACKAGES),
+    time_period: z.enum(BOOKING_TIME_PERIODS).optional(),
+    notes: z.string().max(1000).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      (data.package_type === 'Half day event booking' || data.package_type === 'Studio walk in') &&
+      !data.time_period
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['time_period'],
+        message: 'Please select a time period for this booking package.',
+      });
+    }
+  });
 
 export const RentalFormDetailsSchema = z.object({
   full_name: z.string().min(2).max(150),
-  phone: z.string().min(7).max(30),
+  phone: NigerianPhoneSchema,
   email: z.string().email(),
   address: z.string().min(5).max(500),
   government_id_number: z.string().min(4).max(100).optional(),

@@ -5,7 +5,10 @@ import { issueTokenPair } from '../lib/jwt.js';
 import {
   dispatchNotification,
   buildStudioEmailTemplate,
+  escapeHtml,
 } from '../engines/notification.engine.js';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const adminRouter = Router();
 
@@ -90,7 +93,7 @@ adminRouter.get('/overview', async (_req: Request, res: Response): Promise<void>
 // ============================================================================
 adminRouter.get('/photographers', async (_req: Request, res: Response): Promise<void> => {
   const resPhotogs = await query(`
-    SELECT pp.*, u.full_name, u.email, u.phone, u.status AS user_status
+    SELECT pp.*, u.full_name, u.email, u.phone, u.status AS user_status, u.email_verified_at
     FROM photographer_profiles pp
     JOIN users u ON u.id = pp.user_id
     ORDER BY
@@ -105,36 +108,70 @@ adminRouter.patch(
   '/photographers/:profileId/status',
   async (req: Request, res: Response): Promise<void> => {
     const profileId = String(req.params.profileId || '');
+    if (!UUID_REGEX.test(profileId)) {
+      res.status(400).json({ error: 'INVALID_PROFILE_ID' });
+      return;
+    }
     const approvalStatus = req.body?.approval_status as
       | 'pending'
       | 'approved'
       | 'suspended'
       | 'rejected';
+    const rejectionReason = typeof req.body?.rejection_reason === 'string'
+      ? req.body.rejection_reason.trim()
+      : null;
 
     if (!['pending', 'approved', 'suspended', 'rejected'].includes(approvalStatus)) {
       res.status(400).json({ error: 'INVALID_APPROVAL_STATUS' });
       return;
     }
 
+    if (approvalStatus === 'rejected' && (!rejectionReason || rejectionReason.length < 5)) {
+      res.status(400).json({
+        error: 'REJECTION_REASON_REQUIRED',
+        message: 'Please provide a clear rejection reason (at least 5 characters).',
+      });
+      return;
+    }
+
     const updated = await withTransaction(async (client) => {
+      const existingRes = await client.query<{
+        id: string;
+        user_id: string;
+        email: string;
+        full_name: string;
+        email_verified_at: Date | null;
+      }>(
+        `SELECT pp.id, pp.user_id, u.email, u.full_name, u.email_verified_at
+         FROM photographer_profiles pp
+         JOIN users u ON u.id = pp.user_id
+         WHERE pp.id = $1
+         LIMIT 1`,
+        [profileId]
+      );
+      const existing = existingRes.rows[0];
+      if (!existing) return { notFound: true as const };
+
+      if (approvalStatus === 'approved' && !existing.email_verified_at) {
+        return { unverifiedEmail: true as const };
+      }
+
       const profileRes = await client.query<{
         id: string;
         user_id: string;
         approval_status: string;
+        rejection_reason: string | null;
       }>(
         `UPDATE photographer_profiles
-         SET approval_status = $1
-         WHERE id = $2
-         RETURNING id, user_id, approval_status`,
-        [approvalStatus, profileId]
+         SET approval_status = $1,
+             rejection_reason = CASE WHEN $1 = 'rejected' THEN $2 ELSE NULL END,
+             reviewed_at = NOW(),
+             reviewed_by = $3
+         WHERE id = $4
+         RETURNING id, user_id, approval_status, rejection_reason`,
+        [approvalStatus, rejectionReason, req.user!.sub, profileId]
       );
-      const profile = profileRes.rows[0];
-      if (!profile) return null;
-
-      const userRes = await client.query<{ email: string }>(
-        'SELECT email FROM users WHERE id = $1 LIMIT 1',
-        [profile.user_id]
-      );
+      const profile = profileRes.rows[0]!;
 
       await recordAuditEvent(
         {
@@ -142,27 +179,71 @@ adminRouter.patch(
           action: `PHOTOGRAPHER_STATUS_${approvalStatus.toUpperCase()}`,
           targetEntity: 'photographer_profiles',
           targetId: profile.id,
-          details: { approvalStatus },
+          details: { approvalStatus, rejectionReason },
         },
         client
       );
 
-      return { profile, email: userRes.rows[0]?.email };
+      return {
+        notFound: false as const,
+        unverifiedEmail: false as const,
+        profile,
+        email: existing.email,
+        fullName: existing.full_name,
+      };
     });
 
-    if (!updated) {
+    if (updated.notFound) {
       res.status(404).json({ error: 'PHOTOGRAPHER_NOT_FOUND' });
       return;
     }
 
+    if (updated.unverifiedEmail) {
+      res.status(400).json({
+        error: 'EMAIL_NOT_VERIFIED',
+        message: 'This photographer must verify their email address before they can be approved.',
+      });
+      return;
+    }
+
+    const webUrl = (process.env.NEXT_PUBLIC_WEB_URL || 'https://icxora.com').replace(/\/$/, '');
+
     if (approvalStatus === 'approved' && updated.email) {
-      await dispatchNotification({
+      void dispatchNotification({
         triggerId: 'NT-07',
         recipientEmail: updated.email,
         recipientUserId: updated.profile.user_id,
-        subject: 'Your ICX Studios Photographer Profile is Approved!',
-        htmlBody:
-          '<p>Congratulations! Your photographer profile has been approved and is now live in the ICX Studios booking directory.</p>',
+        subject: 'Your ICXORA Photographer Application Is Approved!',
+        htmlBody: buildStudioEmailTemplate({
+          heading: `Welcome to the ICXORA Roster, ${escapeHtml(updated.fullName)}.`,
+          subheading: 'Your photographer profile and proof-of-work portfolio have been approved.',
+          bodyHtml: `
+            <p style="margin:0 0 14px;">Congratulations! Your photographer application has passed review and is now live in the ICXORA booking directory.</p>
+            <p style="margin:0;">Sign in to your Photographer Portal to manage your availability and upcoming client sessions.</p>
+          `,
+          ctaLabel: 'Open Photographer Portal',
+          ctaUrl: `${webUrl}/portal/photographer`,
+        }),
+        targetEntity: 'photographer_profiles',
+        targetId: updated.profile.id,
+      });
+    } else if (approvalStatus === 'rejected' && updated.email) {
+      void dispatchNotification({
+        triggerId: 'NT-07-REJECT',
+        recipientEmail: updated.email,
+        recipientUserId: updated.profile.user_id,
+        subject: 'Update on Your ICXORA Photographer Application',
+        htmlBody: buildStudioEmailTemplate({
+          heading: `Application Update for ${escapeHtml(updated.fullName)}`,
+          subheading: 'Your photographer application was not approved at this time.',
+          bodyHtml: `
+            <p style="margin:0 0 12px;">Our curation team reviewed your submission and could not approve it for the live directory right now.</p>
+            <p style="margin:0 0 12px;"><strong>Reviewer Feedback:</strong> ${escapeHtml(rejectionReason || '')}</p>
+            <p style="margin:0;">If you have updated portfolio work or questions, please contact support@icxora.com.</p>
+          `,
+          ctaLabel: 'View Application Status',
+          ctaUrl: `${webUrl}/photographer/status`,
+        }),
         targetEntity: 'photographer_profiles',
         targetId: updated.profile.id,
       });
@@ -511,11 +592,24 @@ adminRouter.get('/users', async (_req: Request, res: Response): Promise<void> =>
 
 adminRouter.patch('/users/:userId', async (req: Request, res: Response): Promise<void> => {
   const userId = String(req.params.userId || '');
+  if (!UUID_REGEX.test(userId)) {
+    res.status(400).json({ error: 'INVALID_USER_ID' });
+    return;
+  }
   const { role, status, verify_email } = req.body as {
     role?: string;
     status?: string;
     verify_email?: boolean;
   };
+
+  if (role === 'photographer') {
+    res.status(403).json({
+      error: 'PHOTOGRAPHER_ROLE_LOCKED',
+      message:
+        'Direct upgrade to photographer is disabled. Photographers must register via the dedicated photographer signup flow with proof-of-work verification.',
+    });
+    return;
+  }
 
   const updated = await query(
     `UPDATE users
@@ -526,15 +620,6 @@ adminRouter.patch('/users/:userId', async (req: Request, res: Response): Promise
      RETURNING id, email, role, phone, full_name, status, email_verified_at, created_at`,
     [role ?? null, status ?? null, verify_email ?? false, userId]
   );
-
-  if (role === 'photographer') {
-    await query(
-      `INSERT INTO photographer_profiles (user_id, bio, location, approval_status, services_and_prices, portfolio_urls)
-       VALUES ($1, 'Professional Photographer at ICX Studios', 'Lagos, Nigeria', 'approved', '[]'::jsonb, '[]'::jsonb)
-       ON CONFLICT (user_id) DO UPDATE SET approval_status = 'approved'`,
-      [userId]
-    );
-  }
 
   const targetUser = updated.rows[0];
 
