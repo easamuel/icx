@@ -33,10 +33,9 @@ export default function PhotoEditingFunnelPage() {
     apiFetch<{ packages: EditPackageRecord[] }>('/editing/packages')
       .then((res) => {
         setPackages(res.packages || []);
-        if (res.packages?.[1]) {
-          setSelectedPkgId(res.packages[1].id);
-        } else if (res.packages?.[0]) {
-          setSelectedPkgId(res.packages[0].id);
+        const defaultPkg = res.packages?.[1] ?? res.packages?.[0];
+        if (defaultPkg) {
+          setSelectedPkgId(defaultPkg.id);
         }
       })
       .catch(() => {

@@ -64,7 +64,9 @@ export default function RegisterPage() {
 
   // Photographer onboarding fields
   const [location, setLocation] = useState('Lagos, Nigeria');
-  const [specialty, setSpecialty] = useState(SPECIALTY_OPTIONS[0]);
+  const [specialty, setSpecialty] = useState<string>(
+    SPECIALTY_OPTIONS[0] || 'Editorial & Portrait Photography'
+  );
   const [yearsExperience, setYearsExperience] = useState('3');
   const [bio, setBio] = useState('');
   const [portfolioUrls, setPortfolioUrls] = useState<string[]>([]);

@@ -72,7 +72,7 @@ function getValidPortfolioUrls(urls?: string[] | null): string[] {
 
 function formatReadableDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+  const dt = new Date(Date.UTC(y || 2026, (m || 1) - 1, d || 1));
   return dt.toLocaleDateString('en-NG', {
     weekday: 'short',
     year: 'numeric',
