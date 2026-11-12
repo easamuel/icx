@@ -256,7 +256,7 @@ export default function PhotographerPortalPage() {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (!file.type.startsWith('image/')) continue;
+      if (!file || !file.type.startsWith('image/')) continue;
       if (file.size > 20 * 1024 * 1024) continue;
 
       try {
