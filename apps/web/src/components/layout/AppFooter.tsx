@@ -4,6 +4,14 @@ import { IcxLogo } from '@/components/brand/IcxLogo';
 import { MapPin, Phone, Mail } from 'lucide-react';
 
 export function AppFooter() {
+  const envPhone = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '2348000000000').replace(/\D/g, '');
+  const displayPhone = envPhone.startsWith('234')
+    ? `+234 (0) ${envPhone.slice(3, 6)} ${envPhone.slice(6, 9)} ${envPhone.slice(9)}`
+    : `+${envPhone}`;
+  const whatsappHref = `https://wa.me/${envPhone}?text=${encodeURIComponent(
+    'Hello ICX Studios Support, I would like assistance with a project.'
+  )}`;
+
   return (
     <footer className="border-t border-zinc-800 bg-zinc-950 text-white">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
@@ -25,14 +33,24 @@ export function AppFooter() {
                 <MapPin className="h-3.5 w-3.5 text-white shrink-0" />
                 <span>Victoria Island &amp; Lekki Phase 1, Lagos • Maitama, Abuja</span>
               </div>
-              <div className="flex items-center gap-2">
+              <a
+                href={whatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-white transition-colors"
+                title="Chat with Studio Support on WhatsApp"
+              >
                 <Phone className="h-3.5 w-3.5 text-white shrink-0" />
-                <span>+234 (0) 801 000 0001 (Mon–Sat, 8am–8pm)</span>
-              </div>
-              <div className="flex items-center gap-2">
+                <span>{displayPhone}</span>
+              </a>
+              <a
+                href="mailto:support@icxora.com"
+                className="flex items-center gap-2 hover:text-white transition-colors"
+                title="Email Studio Support"
+              >
                 <Mail className="h-3.5 w-3.5 text-white shrink-0" />
                 <span>support@icxora.com</span>
-              </div>
+              </a>
             </div>
           </div>
 

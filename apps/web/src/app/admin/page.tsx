@@ -511,14 +511,25 @@ export default function AdminExecutiveDashboardPage() {
 
             {/* Admin identity badge */}
             <div className="flex items-center gap-2.5">
-              <div className="text-right hidden md:block">
-                <div className="text-xs font-black text-zinc-950 leading-none">
+              <Link
+                href="/account/security"
+                className="text-right hidden md:block group hover:opacity-80 transition"
+                title="Edit Admin Profile & Security Settings"
+              >
+                <div className="text-xs font-black text-zinc-950 leading-none group-hover:underline">
                   {adminUser?.full_name || 'Admin'}
                 </div>
                 <div className="text-[10px] font-bold text-zinc-400 mt-0.5">
                   {adminUser?.email || 'admin@icxstudios.com'}
                 </div>
-              </div>
+              </Link>
+              <Link
+                href="/account/security"
+                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white hover:bg-zinc-100 px-3 py-1.5 text-xs font-bold text-zinc-800 transition-colors shadow-xs"
+                title="Edit My Profile & Phone"
+              >
+                <span>Edit Profile</span>
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}
@@ -968,7 +979,7 @@ export default function AdminExecutiveDashboardPage() {
                           <div key={o.id} className="flex items-center justify-between rounded-xl border border-zinc-200 p-2.5 bg-white">
                             <div>
                               <span className="font-mono font-bold text-zinc-950">#{o.id.slice(0, 8)}</span>
-                              <span className="text-zinc-500 ml-2">{o.photo_count} photos • {formatNaira(Number(o.total_price))}</span>
+                              <span className="text-zinc-500 ml-2">{o.picture_count || o.photo_count || 0} photos • {formatNaira(Number(o.total_amount || o.total_price || 0))}</span>
                             </div>
                             <span className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-700">
                               {o.status}
@@ -1017,7 +1028,7 @@ export default function AdminExecutiveDashboardPage() {
                             <div>
                               <span className="font-bold text-zinc-950">{r.item_name}</span>
                               <span className="text-zinc-500 ml-2">
-                                {new Date(r.start_date).toLocaleDateString()} – {new Date(r.end_date).toLocaleDateString()}
+                                {new Date(r.start_date).toLocaleDateString()} – {new Date(r.end_date).toLocaleDateString()} • {formatNaira(Number(r.total_amount || r.total_price || 0))}
                               </span>
                             </div>
                             <span className="rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase text-zinc-700">

@@ -23,6 +23,14 @@ import {
 } from 'lucide-react';
 
 export default function SupportPage() {
+  const envPhone = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '2348000000000').replace(/\D/g, '');
+  const displayPhone = envPhone.startsWith('234')
+    ? `+234 (0) ${envPhone.slice(3, 6)} ${envPhone.slice(6, 9)} ${envPhone.slice(9)}`
+    : `+${envPhone}`;
+  const whatsappHref = `https://wa.me/${envPhone}?text=${encodeURIComponent(
+    'Hello ICX Studios Support, I need assistance with my project.'
+  )}`;
+
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formData, setFormData] = useState({
@@ -107,7 +115,7 @@ export default function SupportPage() {
           <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
             {/* Card 1: WhatsApp Support */}
             <a
-              href="https://wa.me/2348010000001?text=Hello%20ICX%20Studios%20Support%2C%20I%20need%20assistance%20with%20my%20project."
+              href={whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm hover:border-zinc-950 hover:shadow-md transition-all group flex flex-col justify-between"
@@ -125,7 +133,7 @@ export default function SupportPage() {
               </div>
               <div className="mt-6 pt-4 border-t border-zinc-100 flex items-center justify-between text-xs font-bold text-emerald-700">
                 <span>Chat Instantly</span>
-                <span>+234 (0) 801 000 0001 →</span>
+                <span>{displayPhone} →</span>
               </div>
             </a>
 

@@ -13,6 +13,11 @@ export default function GlobalErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const envPhone = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '2348000000000').replace(/\D/g, '');
+  const whatsappHref = `https://wa.me/${envPhone}?text=${encodeURIComponent(
+    'Hello ICX Support, I encountered an error on the platform.'
+  )}`;
+
   useEffect(() => {
     console.error('[ICX-APP] Unhandled React Render Error:', error);
   }, [error]);
@@ -58,7 +63,7 @@ export default function GlobalErrorPage({
               <span>Return Home</span>
             </Link>
             <a
-              href="https://wa.me/2348010000001?text=Hello%20ICX%20Support%2C%20I%20encountered%20an%20error%20on%20the%20platform."
+              href={whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-6 py-3 text-xs font-black text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"

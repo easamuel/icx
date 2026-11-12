@@ -17,8 +17,8 @@ export async function runSeed(): Promise<void> {
     // 1. Seed Core Role Accounts (Authentic Nigerian Executive & Creative Roster)
     const adminRes = await client.query<{ id: string }>(
       `INSERT INTO users (email, password_hash, role, phone, full_name, status, email_verified_at)
-       VALUES ('admin@icxstudios.com', $1, 'admin', '+2348010000001', 'Oluwaseun Adeyemi (Executive Director)', 'active', NOW())
-       ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash, role = 'admin', email_verified_at = NOW(), status = 'active'
+       VALUES ('admin@icxstudios.com', $1, 'admin', '08010000001', 'Admin', 'active', NOW())
+       ON CONFLICT (email) DO UPDATE SET full_name = 'Admin', password_hash = EXCLUDED.password_hash, role = 'admin', email_verified_at = NOW(), status = 'active'
        RETURNING id`,
       [defaultPasswordHash]
     );

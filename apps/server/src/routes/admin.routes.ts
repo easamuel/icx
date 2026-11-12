@@ -680,6 +680,10 @@ adminRouter.patch('/users/:userId', async (req: Request, res: Response): Promise
 
 adminRouter.get('/users/:userId/details', async (req: Request, res: Response): Promise<void> => {
   const userId = String(req.params.userId || '');
+  if (!UUID_REGEX.test(userId)) {
+    res.status(400).json({ error: 'INVALID_USER_ID', message: 'Invalid user UUID.' });
+    return;
+  }
   const userRes = await query(
     `SELECT id, email, role, phone, full_name, two_factor_enabled, status, email_verified_at, created_at, updated_at
      FROM users WHERE id = $1 LIMIT 1`,
@@ -693,12 +697,12 @@ adminRouter.get('/users/:userId/details', async (req: Request, res: Response): P
 
   const [ordersRes, bookingsRes, rentalsRes, photogRes, paymentsRes] = await Promise.all([
     query(
-      `SELECT id, status, photo_count, total_price, deposit_paid, full_paid, created_at
+      `SELECT id, status, picture_count, total_amount, amount_paid, balance_amount, payment_state, created_at
        FROM edit_orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 25`,
       [userId]
     ),
     query(
-      `SELECT b.id, b.service_title, b.price, b.status, s.start_time, s.end_time, b.created_at
+      `SELECT b.id, b.service_title, b.price, b.status, b.booking_date, b.package_type, b.time_period, s.start_time, s.end_time, b.created_at
        FROM bookings b
        LEFT JOIN availability_slots s ON s.id = b.slot_id
        LEFT JOIN photographer_profiles pp ON pp.id = b.photographer_id
@@ -707,7 +711,7 @@ adminRouter.get('/users/:userId/details', async (req: Request, res: Response): P
       [userId]
     ),
     query(
-      `SELECT r.id, r.start_date, r.end_date, r.status, r.total_price, ei.name as item_name
+      `SELECT r.id, r.start_date, r.end_date, r.status, r.total_amount, ei.name as item_name
        FROM rentals r
        JOIN equipment_items ei ON ei.id = r.item_id
        WHERE r.customer_id = $1 ORDER BY r.start_date DESC LIMIT 25`,
@@ -718,8 +722,13 @@ adminRouter.get('/users/:userId/details', async (req: Request, res: Response): P
       [userId]
     ),
     query(
-      `SELECT id, amount, gateway, status, transaction_ref, target_type, created_at
-       FROM payments WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 25`,
+      `SELECT id, amount, type, gateway_reference, target_type, verified_at as created_at
+       FROM payments
+       WHERE target_id = $1
+          OR target_id IN (SELECT id FROM edit_orders WHERE customer_id = $1)
+          OR target_id IN (SELECT id FROM bookings WHERE customer_id = $1)
+          OR target_id IN (SELECT id FROM rentals WHERE customer_id = $1)
+       ORDER BY verified_at DESC LIMIT 25`,
       [userId]
     ),
   ]);

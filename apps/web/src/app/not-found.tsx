@@ -5,6 +5,11 @@ import { AppFooter } from '@/components/layout/AppFooter';
 import { ArrowLeft, Home, Sliders, Camera, PackageCheck, MessageSquare } from 'lucide-react';
 
 export default function NotFound() {
+  const envPhone = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '2348000000000').replace(/\D/g, '');
+  const whatsappHref = `https://wa.me/${envPhone}?text=${encodeURIComponent(
+    'Hello ICX Studios, I hit a missing page and need assistance.'
+  )}`;
+
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950 text-white">
       <AppNavbar />
@@ -33,7 +38,7 @@ export default function NotFound() {
               <span>Return to Studio Home</span>
             </Link>
             <a
-              href="https://wa.me/2348010000001?text=Hello%20ICX%20Studios%2C%20I%20hit%20a%20missing%20page%20and%20need%20assistance."
+              href={whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-6 py-3 text-xs font-black text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"

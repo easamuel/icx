@@ -72,10 +72,6 @@ export default function PhotoEditingFunnelPage() {
         {/* Header */}
         <div className="border-b border-zinc-200 pb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
-            <div className="inline-flex items-center gap-2 rounded-full bg-zinc-950 text-white px-3.5 py-1 text-[11px] font-bold uppercase tracking-widest">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              Photo Retouching Studio
-            </div>
             <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-zinc-950">
               Select Your Retouching Standard.
             </h1>
@@ -83,11 +79,6 @@ export default function PhotoEditingFunnelPage() {
               Choose the finishing tier that fits your shoot, then continue directly to our
               studio desk on WhatsApp with your selected standard pre-filled.
             </p>
-          </div>
-
-          <div className="flex items-center gap-3 text-xs font-semibold text-zinc-600 bg-white border border-zinc-200 rounded-2xl px-4 py-3 shadow-xs">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Calibrated Editorial Grading • Human Senior Retouchers</span>
           </div>
         </div>
 
