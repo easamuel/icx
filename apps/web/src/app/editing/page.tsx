@@ -197,7 +197,7 @@ export default function PhotoEditingFunnelPage() {
                         </span>
                         <span className="inline-flex items-center gap-1.5">
                           <RotateCcw className="w-3.5 h-3.5 text-zinc-400" />
-                          {pkg.revision_limit} revisions
+                          {pkg.free_revisions} revisions
                         </span>
                       </div>
                     </div>
