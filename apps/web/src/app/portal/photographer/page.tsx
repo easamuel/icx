@@ -336,6 +336,7 @@ export default function PhotographerPortalPage() {
   async function handleSetCoverPhoto(index: number) {
     if (index === 0) return;
     const target = portfolioUrls[index];
+    if (!target) return;
     const rest = portfolioUrls.filter((_, idx) => idx !== index);
     const updated = [target, ...rest];
     setPortfolioUrls(updated);
