@@ -27,8 +27,13 @@ export function middleware(request: NextRequest) {
 
   if (!hasSessionCookie) {
     const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/auth/login';
-    loginUrl.search = `?redirect=${encodeURIComponent(`${pathname}${search}`)}`;
+    if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+      loginUrl.pathname = '/l/admin/login';
+      loginUrl.search = '';
+    } else {
+      loginUrl.pathname = '/auth/login';
+      loginUrl.search = `?redirect=${encodeURIComponent(`${pathname}${search}`)}`;
+    }
     return NextResponse.redirect(loginUrl);
   }
 
