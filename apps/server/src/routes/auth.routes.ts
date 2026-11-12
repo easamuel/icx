@@ -1351,7 +1351,7 @@ authRouter.get('/google/callback', async (req: Request, res: Response): Promise<
         [
           normalizedEmail,
           passwordHash,
-          (profile.name || normalizedEmail.split('@')[0]).trim().slice(0, 150),
+          (profile.name || normalizedEmail.split('@')[0] || 'ICX User').trim().slice(0, 150),
           profile.email_verified ? new Date() : null,
         ]
       );
