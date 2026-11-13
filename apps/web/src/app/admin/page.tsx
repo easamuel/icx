@@ -620,6 +620,31 @@ export default function AdminExecutiveDashboardPage() {
       </div>
 
       <main className="mx-auto max-w-7xl flex-1 px-4 py-6 sm:py-8 sm:px-6 lg:px-8 space-y-6 sm:space-y-8 w-full">
+        {statusBanner && (
+          <div className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3.5 text-xs font-bold text-emerald-800 shadow-xs">
+            <span>{statusBanner}</span>
+            <button
+              type="button"
+              onClick={() => setStatusBanner(null)}
+              className="text-emerald-700 hover:text-emerald-950 font-black ml-4"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 px-5 py-3.5 text-xs font-bold text-red-800 shadow-xs">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="text-red-700 hover:text-red-950 font-black ml-4"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {/* TAB 1: DAILY ACTIVE METRICS OVERVIEW */}
         {activeTab === 'overview' && overview && (
           <div className="space-y-6">
@@ -1249,16 +1274,20 @@ export default function AdminExecutiveDashboardPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {!emailVerified && (
+                        <button
+                          type="button"
+                          onClick={() => void handleModifyUser(p.user_id, { verify_email: true })}
+                          className="rounded-full bg-blue-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-blue-700 transition-colors shadow-xs"
+                          title="Verify email address for this photographer"
+                        >
+                          Verify Email First
+                        </button>
+                      )}
                       <button
                         type="button"
-                        disabled={!emailVerified}
-                        title={
-                          emailVerified
-                            ? 'Approve photographer profile'
-                            : 'Photographer must verify email before approval'
-                        }
                         onClick={() => void handlePhotographerApproval(p.id, 'approved')}
-                        className="rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 transition-colors shadow-xs"
                       >
                         Approve
                       </button>

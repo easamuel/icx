@@ -153,7 +153,10 @@ adminRouter.patch(
       if (!existing) return { notFound: true as const };
 
       if (approvalStatus === 'approved' && !existing.email_verified_at) {
-        return { unverifiedEmail: true as const };
+        await client.query(
+          `UPDATE users SET email_verified_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [existing.user_id]
+        );
       }
 
       const profileRes = await client.query<{
@@ -186,7 +189,6 @@ adminRouter.patch(
 
       return {
         notFound: false as const,
-        unverifiedEmail: false as const,
         profile,
         email: existing.email,
         fullName: existing.full_name,
@@ -195,14 +197,6 @@ adminRouter.patch(
 
     if (updated.notFound) {
       res.status(404).json({ error: 'PHOTOGRAPHER_NOT_FOUND' });
-      return;
-    }
-
-    if (updated.unverifiedEmail) {
-      res.status(400).json({
-        error: 'EMAIL_NOT_VERIFIED',
-        message: 'This photographer must verify their email address before they can be approved.',
-      });
       return;
     }
 
