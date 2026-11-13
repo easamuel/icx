@@ -274,8 +274,34 @@ export default function CustomerUnifiedDashboardPage() {
                           </span>
                         </div>
                         <p className="mt-1.5 text-xs font-medium text-zinc-600">
-                          Session Slot: {new Date(String(b.start_time)).toLocaleString()} • Fee:{' '}
-                          <strong>{formatNaira(String(b.price))}</strong>
+                          Session:{' '}
+                          {b.start_time
+                            ? `${new Date(String(b.start_time)).toLocaleDateString('en-NG', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })} • ${new Date(String(b.start_time)).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}${
+                                b.end_time
+                                  ? ` – ${new Date(String(b.end_time)).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}`
+                                  : ''
+                              }`
+                            : b.booking_date
+                            ? `${new Date(String(b.booking_date)).toLocaleDateString('en-NG', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                timeZone: 'UTC',
+                              })}${b.time_period ? ` • ${String(b.time_period)}` : ''}`
+                            : 'Schedule pending confirmation'}{' '}
+                          • Fee: <strong>{formatNaira(String(b.price))}</strong>
                         </p>
                       </div>
 

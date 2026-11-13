@@ -40,16 +40,31 @@ bookingsRouter.get(
     }
 
     const photogsRes = await query<
-      PhotographerProfileRecord & { full_name: string }
+      PhotographerProfileRecord & {
+        full_name: string;
+        available_slots_count: number;
+        next_available_at: Date | null;
+      }
     >(
-      `SELECT pp.*, u.full_name
+      `SELECT pp.*,
+              u.full_name,
+              COALESCE(avail.available_slots_count, 0)::int AS available_slots_count,
+              avail.next_available_at
        FROM photographer_profiles pp
        JOIN users u ON u.id = pp.user_id
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*) AS available_slots_count,
+                MIN(s.start_time) AS next_available_at
+         FROM availability_slots s
+         WHERE s.photographer_id = pp.id
+           AND s.start_time > NOW()
+           AND (s.status = 'free' OR (s.status = 'held' AND s.held_until <= NOW()))
+       ) avail ON true
        WHERE pp.approval_status = 'approved'
          AND u.status = 'active'
          AND u.email_verified_at IS NOT NULL
          ${locationClause}
-       ORDER BY pp.rating DESC, pp.created_at DESC`,
+       ORDER BY (COALESCE(avail.available_slots_count, 0) > 0) DESC, pp.rating DESC, pp.created_at DESC`,
       params
     );
 
@@ -111,101 +126,91 @@ bookingsRouter.get(
 
 // ============================================================================
 // 2b. GET /api/v1/bookings/photographers/:photographerId/availability
-// Returns 30-day date availability + package & time-period rules.
+// Returns ONLY real published availability slots grouped by date.
+// If the photographer has not published any future free slots, returns is_available: false.
 // ============================================================================
 bookingsRouter.get(
   '/photographers/:photographerId/availability',
   async (req: Request, res: Response): Promise<void> => {
-    const photographerId = String(req.params.photographerId || '');
-    if (!UUID_REGEX.test(photographerId)) {
-      res.status(400).json({ error: 'INVALID_PHOTOGRAPHER_ID' });
-      return;
-    }
-
-    const profileRes = await query<{ id: string }>(
-      `SELECT pp.id
-       FROM photographer_profiles pp
-       JOIN users u ON u.id = pp.user_id
-       WHERE pp.id = $1
-         AND pp.approval_status = 'approved'
-         AND u.status = 'active'
-         AND u.email_verified_at IS NOT NULL
-       LIMIT 1`,
-      [photographerId]
-    );
-
-    if (!profileRes.rows[0]) {
-      res.status(404).json({
-        error: 'PHOTOGRAPHER_NOT_FOUND',
-        message: 'Verified and approved photographer profile not found.',
-      });
-      return;
-    }
-
-    const bookingsRes = await query<{
-      booking_date: string;
-      package_type: string | null;
-      time_period: string | null;
-    }>(
-      `SELECT to_char(booking_date, 'YYYY-MM-DD') AS booking_date,
-              package_type,
-              time_period
-       FROM bookings
-       WHERE photographer_id = $1
-         AND booking_date >= CURRENT_DATE
-         AND booking_date <= CURRENT_DATE + INTERVAL '30 days'
-         AND status NOT IN ('cancelled', 'declined', 'expired')`,
-      [photographerId]
-    );
-
-    const byDate = new Map<string, Array<{ package_type: string | null; time_period: string | null }>>();
-    for (const row of bookingsRes.rows) {
-      const list = byDate.get(row.booking_date) || [];
-      list.push(row);
-      byDate.set(row.booking_date, list);
-    }
-
-    const dates: Array<{
-      date: string;
-      is_available: boolean;
-      available_packages: string[];
-      available_time_periods: string[];
-    }> = [];
-
-    const today = new Date();
-    for (let offset = 1; offset <= 30; offset++) {
-      const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + offset));
-      const dateStr = d.toISOString().slice(0, 10);
-      const dayBookings = byDate.get(dateStr) || [];
-
-      const hasFullDay = dayBookings.some((b) => b.package_type === 'Full day event booking');
-      if (hasFullDay) {
-        continue;
+    try {
+      const photographerId = String(req.params.photographerId || '');
+      if (!UUID_REGEX.test(photographerId)) {
+        res.status(400).json({ error: 'INVALID_PHOTOGRAPHER_ID' });
+        return;
       }
 
-      const takenPeriods = new Set(
-        dayBookings.map((b) => b.time_period).filter((p): p is string => Boolean(p))
+      const profileRes = await query<{ id: string }>(
+        `SELECT pp.id
+         FROM photographer_profiles pp
+         JOIN users u ON u.id = pp.user_id
+         WHERE pp.id = $1
+           AND pp.approval_status = 'approved'
+           AND u.status = 'active'
+           AND u.email_verified_at IS NOT NULL
+         LIMIT 1`,
+        [photographerId]
       );
-      const remainingPeriods = BOOKING_TIME_PERIODS.filter((p) => !takenPeriods.has(p));
 
-      if (remainingPeriods.length === 0) {
-        continue;
+      if (!profileRes.rows[0]) {
+        res.status(404).json({
+          error: 'PHOTOGRAPHER_NOT_FOUND',
+          message: 'Verified and approved photographer profile not found.',
+        });
+        return;
       }
 
-      const availablePackages =
-        dayBookings.length === 0
-          ? [...BOOKING_PACKAGES]
-          : BOOKING_PACKAGES.filter((pkg) => pkg !== 'Full day event booking');
+      const slotsRes = await query<{
+        id: string;
+        start_time: Date;
+        end_time: Date;
+        slot_date: string;
+      }>(
+        `SELECT id,
+                start_time,
+                end_time,
+                to_char(start_time AT TIME ZONE 'Africa/Lagos', 'YYYY-MM-DD') AS slot_date
+         FROM availability_slots
+         WHERE photographer_id = $1
+           AND start_time > NOW()
+           AND (status = 'free' OR (status = 'held' AND held_until <= NOW()))
+         ORDER BY start_time ASC`,
+        [photographerId]
+      );
 
-      dates.push({
-        date: dateStr,
+      const dateMap = new Map<
+        string,
+        Array<{ id: string; start_time: Date; end_time: Date }>
+      >();
+
+      for (const s of slotsRes.rows) {
+        const list = dateMap.get(s.slot_date) || [];
+        list.push({
+          id: s.id,
+          start_time: s.start_time,
+          end_time: s.end_time,
+        });
+        dateMap.set(s.slot_date, list);
+      }
+
+      const dates = Array.from(dateMap.entries()).map(([date, daySlots]) => ({
+        date,
         is_available: true,
-        available_packages: availablePackages,
-        available_time_periods: remainingPeriods,
+        slots: daySlots,
+      }));
+
+      res.status(200).json({
+        photographer_id: photographerId,
+        is_available: slotsRes.rows.length > 0,
+        dates,
+        slots: slotsRes.rows,
+      });
+    } catch (err) {
+      console.error('[ICX-BOOKINGS] Availability lookup error:', err);
+      res.status(500).json({
+        error: 'AVAILABILITY_LOOKUP_FAILED',
+        message: 'Unable to load photographer availability.',
       });
     }
-
-    res.status(200).json({ photographer_id: photographerId, dates });
   }
 );
 
@@ -269,6 +274,7 @@ bookingsRouter.post(
         photographerProfileId: parsed.data.photographer_id,
         slotId: parsed.data.slot_id,
         serviceTitle: parsed.data.service_title,
+        notes: typeof body.notes === 'string' ? body.notes : undefined,
       });
 
       res.status(201).json(result);
@@ -321,69 +327,93 @@ bookingsRouter.get(
   '/:bookingId',
   requireAuth,
   async (req: Request, res: Response): Promise<void> => {
-    const bookingId = String(req.params.bookingId || '');
-    const bookingRes = await query<
-      BookingRecord & {
-        photographer_user_id: string;
-        photographer_name: string;
-        start_time: Date;
-        end_time: Date;
+    try {
+      const bookingId = String(req.params.bookingId || '');
+      if (!UUID_REGEX.test(bookingId)) {
+        res.status(400).json({
+          error: 'INVALID_BOOKING_ID',
+          message: 'Invalid booking reference ID.',
+        });
+        return;
       }
-    >(
-      `SELECT b.*,
-              pp.user_id AS photographer_user_id,
-              u.full_name AS photographer_name,
-              s.start_time,
-              s.end_time
-       FROM bookings b
-       JOIN photographer_profiles pp ON pp.id = b.photographer_id
-       JOIN users u ON u.id = pp.user_id
-       JOIN availability_slots s ON s.id = b.slot_id
-       WHERE b.id = $1
-       LIMIT 1`,
-      [bookingId]
-    );
 
-    const booking = bookingRes.rows[0];
-    if (!booking) {
-      res.status(404).json({ error: 'BOOKING_NOT_FOUND' });
-      return;
+      const bookingRes = await query<
+        BookingRecord & {
+          photographer_user_id: string;
+          photographer_name: string;
+          photographer_location: string | null;
+          start_time: Date | null;
+          end_time: Date | null;
+        }
+      >(
+        `SELECT b.*,
+                pp.user_id AS photographer_user_id,
+                pp.location AS photographer_location,
+                u.full_name AS photographer_name,
+                s.start_time,
+                s.end_time
+         FROM bookings b
+         JOIN photographer_profiles pp ON pp.id = b.photographer_id
+         JOIN users u ON u.id = pp.user_id
+         LEFT JOIN availability_slots s ON s.id = b.slot_id
+         WHERE b.id = $1::uuid
+         LIMIT 1`,
+        [bookingId]
+      );
+
+      const booking = bookingRes.rows[0];
+      if (!booking) {
+        res.status(404).json({
+          error: 'BOOKING_NOT_FOUND',
+          message: 'Booking session not found.',
+        });
+        return;
+      }
+
+      const userId = req.user!.sub;
+      if (
+        booking.customer_id !== userId &&
+        booking.photographer_user_id !== userId &&
+        req.user!.role !== 'admin'
+      ) {
+        res.status(403).json({
+          error: 'FORBIDDEN_BOOKING',
+          message: 'You do not have permission to view this booking session.',
+        });
+        return;
+      }
+
+      const photosRes = await query<{ id: string; version: number; created_at: Date }>(
+        'SELECT id, version, created_at FROM photos WHERE booking_id = $1::uuid ORDER BY created_at ASC',
+        [booking.id]
+      );
+
+      const paidRes = await query<{ total_paid: string }>(
+        `SELECT COALESCE(SUM(amount), 0)::text AS total_paid
+         FROM payments
+         WHERE target_type = 'booking' AND target_id = $1::uuid AND type != 'refund'`,
+        [booking.id]
+      );
+      const isPaidInFull =
+        BigInt(paidRes.rows[0]?.total_paid ?? '0') >= BigInt(booking.price);
+
+      res.status(200).json({
+        booking,
+        deliverables: photosRes.rows.map((p) => ({
+          id: p.id,
+          version: p.version,
+          created_at: p.created_at,
+          previewUrl: `/api/v1/uploads/preview/${p.id}`,
+        })),
+        canDownloadClean: isPaidInFull,
+      });
+    } catch (err) {
+      console.error('[ICX-BOOKINGS] Booking detail fetch failed:', err);
+      res.status(500).json({
+        error: 'BOOKING_LOAD_FAILED',
+        message: 'Unable to load booking session details.',
+      });
     }
-
-    const userId = req.user!.sub;
-    if (
-      booking.customer_id !== userId &&
-      booking.photographer_user_id !== userId &&
-      req.user!.role !== 'admin'
-    ) {
-      res.status(403).json({ error: 'FORBIDDEN_BOOKING' });
-      return;
-    }
-
-    const photosRes = await query<{ id: string; version: number; created_at: Date }>(
-      'SELECT id, version, created_at FROM photos WHERE booking_id = $1 ORDER BY created_at ASC',
-      [booking.id]
-    );
-
-    const paidRes = await query<{ total_paid: string }>(
-      `SELECT COALESCE(SUM(amount), 0)::text AS total_paid
-       FROM payments
-       WHERE target_type = 'booking' AND target_id = $1 AND type != 'refund'`,
-      [booking.id]
-    );
-    const isPaidInFull =
-      BigInt(paidRes.rows[0]?.total_paid ?? '0') >= BigInt(booking.price);
-
-    res.status(200).json({
-      booking,
-      deliverables: photosRes.rows.map((p) => ({
-        id: p.id,
-        version: p.version,
-        created_at: p.created_at,
-        previewUrl: `/api/v1/uploads/preview/${p.id}`,
-      })),
-      canDownloadClean: isPaidInFull,
-    });
   }
 );
 
@@ -529,6 +559,82 @@ bookingsRouter.post(
       res.status(409).json({
         error: 'OVERLAPPING_SLOT',
         message: 'This time slot overlaps with an existing availability slot on your schedule.',
+      });
+    }
+  }
+);
+
+// POST /api/v1/bookings/photographer/slots/bulk
+// Allows photographers to publish multiple days & time blocks in a single request.
+bookingsRouter.post(
+  '/photographer/slots/bulk',
+  requireAuth,
+  requireRole('photographer', 'admin'),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const rawSlots = Array.isArray(req.body?.slots) ? req.body.slots : [];
+      if (rawSlots.length === 0 || rawSlots.length > 120) {
+        res.status(400).json({
+          error: 'INVALID_BULK_SLOTS',
+          message: 'Provide between 1 and 120 availability slots to publish.',
+        });
+        return;
+      }
+
+      const validatedSlots: Array<{ start_time: string; end_time: string }> = [];
+      for (const item of rawSlots) {
+        const parsed = CreateAvailabilitySlotSchema.safeParse(item);
+        if (!parsed.success) {
+          res.status(400).json({
+            error: 'VALIDATION_ERROR',
+            message: 'One or more slots have invalid start or end times.',
+            details: parsed.error.flatten(),
+          });
+          return;
+        }
+        validatedSlots.push(parsed.data);
+      }
+
+      const profileRes = await query<{ id: string }>(
+        'SELECT id FROM photographer_profiles WHERE user_id = $1 LIMIT 1',
+        [req.user!.sub]
+      );
+      const profileId = profileRes.rows[0]?.id;
+      if (!profileId) {
+        res.status(404).json({
+          error: 'PHOTOGRAPHER_PROFILE_NOT_FOUND',
+          message: 'Photographer profile not found.',
+        });
+        return;
+      }
+
+      const created: AvailabilitySlotRecord[] = [];
+      let skippedCount = 0;
+
+      for (const s of validatedSlots) {
+        try {
+          const insertRes = await query<AvailabilitySlotRecord>(
+            `INSERT INTO availability_slots (photographer_id, start_time, end_time, status)
+             VALUES ($1, $2::timestamptz, $3::timestamptz, 'free')
+             RETURNING *`,
+            [profileId, s.start_time, s.end_time]
+          );
+          if (insertRes.rows[0]) created.push(insertRes.rows[0]);
+        } catch {
+          skippedCount += 1;
+        }
+      }
+
+      res.status(201).json({
+        createdCount: created.length,
+        skippedCount,
+        slots: created,
+      });
+    } catch (err) {
+      console.error('[ICX-BOOKINGS] Bulk slot publish error:', err);
+      res.status(500).json({
+        error: 'BULK_PUBLISH_FAILED',
+        message: 'Unable to publish availability slots.',
       });
     }
   }

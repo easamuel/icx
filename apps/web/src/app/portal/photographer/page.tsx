@@ -99,6 +99,24 @@ export default function PhotographerPortalPage() {
   const [error, setError] = useState<string | null>(null);
   const [portfolioUrls, setPortfolioUrls] = useState<string[]>([]);
   const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
+  const [slotMode, setSlotMode] = useState<'bulk' | 'single'>('bulk');
+  const [bulkStartDate, setBulkStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [bulkEndDate, setBulkEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().slice(0, 10);
+  });
+  const [bulkWeekdays, setBulkWeekdays] = useState<number[]>([1, 2, 3, 4, 5, 6]); // Mon–Sat
+  const [bulkBlocks, setBulkBlocks] = useState<string[]>(['09:00-13:00', '13:30-17:30']);
+  const [customBlockStart, setCustomBlockStart] = useState('09:00');
+  const [customBlockEnd, setCustomBlockEnd] = useState('17:00');
+  const [useCustomBlock, setUseCustomBlock] = useState(false);
+  const [publishingSlots, setPublishingSlots] = useState(false);
+  const [slotBanner, setSlotBanner] = useState<string | null>(null);
 
   const loadWorkspace = useCallback(async () => {
     try {
@@ -192,6 +210,7 @@ export default function PhotographerPortalPage() {
 
   async function handleDeleteSlot(slotId: string) {
     setError(null);
+    setSlotBanner(null);
     try {
       await apiFetch(`/bookings/photographer/slots/${slotId}`, {
         method: 'DELETE',
@@ -199,6 +218,102 @@ export default function PhotographerPortalPage() {
       await loadWorkspace();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to remove availability slot.');
+    }
+  }
+
+  function buildBulkSlotPayloads(): Array<{ start_time: string; end_time: string }> {
+    if (!bulkStartDate || !bulkEndDate || bulkWeekdays.length === 0) return [];
+    const blocks = useCustomBlock
+      ? customBlockStart && customBlockEnd && customBlockEnd > customBlockStart
+        ? [`${customBlockStart}-${customBlockEnd}`]
+        : []
+      : bulkBlocks;
+    if (blocks.length === 0) return [];
+
+    const startD = new Date(`${bulkStartDate}T00:00:00`);
+    const endD = new Date(`${bulkEndDate}T00:00:00`);
+    if (isNaN(startD.getTime()) || isNaN(endD.getTime()) || endD < startD) return [];
+
+    const out: Array<{ start_time: string; end_time: string }> = [];
+    const cursor = new Date(startD);
+    let safety = 0;
+    while (cursor <= endD && safety < 60 && out.length < 120) {
+      safety += 1;
+      if (bulkWeekdays.includes(cursor.getDay())) {
+        const ymd = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(
+          cursor.getDate()
+        ).padStart(2, '0')}`;
+        for (const block of blocks) {
+          const [sTime, eTime] = block.split('-');
+          if (!sTime || !eTime) continue;
+          const sDt = new Date(`${ymd}T${sTime}:00`);
+          const eDt = new Date(`${ymd}T${eTime}:00`);
+          if (!isNaN(sDt.getTime()) && !isNaN(eDt.getTime()) && eDt > sDt) {
+            out.push({
+              start_time: sDt.toISOString(),
+              end_time: eDt.toISOString(),
+            });
+          }
+        }
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return out;
+  }
+
+  async function handleBulkPublishSlots(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSlotBanner(null);
+    const payloads = buildBulkSlotPayloads();
+    if (payloads.length === 0) {
+      setError('Select a valid date range, at least one weekday, and at least one time block.');
+      return;
+    }
+
+    setPublishingSlots(true);
+    try {
+      const res = await apiFetch<{ createdCount: number; skippedCount: number }>(
+        '/bookings/photographer/slots/bulk',
+        {
+          method: 'POST',
+          body: JSON.stringify({ slots: payloads }),
+        }
+      );
+      setSlotBanner(
+        `Published ${res.createdCount} availability slot${res.createdCount === 1 ? '' : 's'}${
+          res.skippedCount > 0 ? ` (${res.skippedCount} overlapping skipped)` : ''
+        }.`
+      );
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to publish bulk slots.');
+    } finally {
+      setPublishingSlots(false);
+    }
+  }
+
+  async function handleRemoveService(indexToRemove: number) {
+    if (!data) return;
+    setError(null);
+    setProfileSavedMsg(null);
+    const remaining = (data.profile.services_and_prices || []).filter(
+      (_, idx) => idx !== indexToRemove
+    );
+    try {
+      await apiFetch('/bookings/photographer/profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          bio: bio || data.profile.bio || 'Studio and event photography specialist.',
+          location: location || data.profile.location || 'Lagos, Nigeria',
+          portfolio_urls: portfolioUrls,
+          services_and_prices: remaining,
+        }),
+      });
+      setProfileSavedMsg('Shoot package removed.');
+      await loadWorkspace();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to remove package.');
     }
   }
 
@@ -512,82 +627,271 @@ export default function PhotographerPortalPage() {
 
               {/* Right Column: Availability Slot Scheduler */}
               <div className="rounded-3xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm space-y-5 h-fit">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-zinc-950" />
-                  <h2 className="text-base font-black text-zinc-950">
-                    Publish Availability Slots
-                  </h2>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-zinc-950" />
+                    <h2 className="text-base font-black text-zinc-950">
+                      Publish Availability
+                    </h2>
+                  </div>
+                  <div className="inline-flex rounded-full border border-zinc-200 bg-zinc-100 p-0.5 text-[11px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setSlotMode('bulk')}
+                      className={`rounded-full px-3 py-1 transition-colors ${
+                        slotMode === 'bulk'
+                          ? 'bg-zinc-950 text-white'
+                          : 'text-zinc-600 hover:text-zinc-950'
+                      }`}
+                    >
+                      Days &amp; Hours
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSlotMode('single')}
+                      className={`rounded-full px-3 py-1 transition-colors ${
+                        slotMode === 'single'
+                          ? 'bg-zinc-950 text-white'
+                          : 'text-zinc-600 hover:text-zinc-950'
+                      }`}
+                    >
+                      Single Slot
+                    </button>
+                  </div>
                 </div>
 
-                <form onSubmit={handleAddSlot} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-extrabold text-zinc-900">
-                      Start Date &amp; Time
-                    </label>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={slotStart}
-                      onChange={(e) => setSlotStart(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                    />
+                {slotBanner && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs font-bold text-emerald-800">
+                    {slotBanner}
                   </div>
+                )}
 
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-extrabold text-zinc-900">
-                        End Date &amp; Time
-                      </label>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setSlotDuration(2)}
-                          className="rounded-lg bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-200"
-                        >
-                          +2h
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSlotDuration(4)}
-                          className="rounded-lg bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-200"
-                        >
-                          +4h
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSlotDuration(8)}
-                          className="rounded-lg bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-200"
-                        >
-                          Full Day
-                        </button>
+                {slotMode === 'bulk' ? (
+                  <form onSubmit={handleBulkPublishSlots} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-zinc-900">
+                          From Date
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={bulkStartDate}
+                          onChange={(e) => setBulkStartDate(e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-zinc-900">
+                          To Date
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={bulkEndDate}
+                          onChange={(e) => setBulkEndDate(e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                        />
                       </div>
                     </div>
-                    <input
-                      type="datetime-local"
-                      required
-                      value={slotEnd}
-                      onChange={(e) => setSlotEnd(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                    />
-                  </div>
 
-                  <button
-                    type="submit"
-                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-zinc-950 py-3 text-xs font-black text-white shadow hover:bg-zinc-800 transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Publish Open Slot</span>
-                  </button>
-                </form>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-zinc-900 mb-1.5">
+                        Available Days of Week
+                      </label>
+                      <div className="grid grid-cols-7 gap-1">
+                        {[
+                          { d: 0, l: 'Sun' },
+                          { d: 1, l: 'Mon' },
+                          { d: 2, l: 'Tue' },
+                          { d: 3, l: 'Wed' },
+                          { d: 4, l: 'Thu' },
+                          { d: 5, l: 'Fri' },
+                          { d: 6, l: 'Sat' },
+                        ].map((item) => {
+                          const active = bulkWeekdays.includes(item.d);
+                          return (
+                            <button
+                              key={item.d}
+                              type="button"
+                              onClick={() =>
+                                setBulkWeekdays((prev) =>
+                                  prev.includes(item.d)
+                                    ? prev.filter((x) => x !== item.d)
+                                    : [...prev, item.d]
+                                )
+                              }
+                              className={`rounded-lg py-1.5 text-[11px] font-bold transition-colors ${
+                                active
+                                  ? 'bg-zinc-950 text-white'
+                                  : 'border border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-zinc-100'
+                              }`}
+                            >
+                              {item.l}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-extrabold text-zinc-900">
+                          Session Hours
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setUseCustomBlock(!useCustomBlock)}
+                          className="text-[11px] font-bold text-zinc-600 underline hover:text-zinc-950"
+                        >
+                          {useCustomBlock ? 'Use Preset Blocks' : 'Custom Hours'}
+                        </button>
+                      </div>
+
+                      {useCustomBlock ? (
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div>
+                            <span className="text-[10px] font-bold text-zinc-500">Start Hour</span>
+                            <input
+                              type="time"
+                              value={customBlockStart}
+                              onChange={(e) => setCustomBlockStart(e.target.value)}
+                              className="mt-0.5 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-950"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-zinc-500">End Hour</span>
+                            <input
+                              type="time"
+                              value={customBlockEnd}
+                              onChange={(e) => setCustomBlockEnd(e.target.value)}
+                              className="mt-0.5 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-950"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {[
+                            { id: '09:00-13:00', label: 'Morning (09:00 AM – 01:00 PM)' },
+                            { id: '13:30-17:30', label: 'Afternoon (01:30 PM – 05:30 PM)' },
+                            { id: '09:00-17:00', label: 'Full Day (09:00 AM – 05:00 PM)' },
+                          ].map((block) => {
+                            const selected = bulkBlocks.includes(block.id);
+                            return (
+                              <button
+                                key={block.id}
+                                type="button"
+                                onClick={() =>
+                                  setBulkBlocks((prev) =>
+                                    prev.includes(block.id)
+                                      ? prev.filter((x) => x !== block.id)
+                                      : [...prev, block.id]
+                                  )
+                                }
+                                className={`w-full rounded-xl border px-3 py-2 text-left text-xs font-bold flex items-center justify-between transition-colors ${
+                                  selected
+                                    ? 'border-zinc-950 bg-zinc-950 text-white'
+                                    : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100'
+                                }`}
+                              >
+                                <span>{block.label}</span>
+                                <span className="text-[10px] uppercase">
+                                  {selected ? 'Selected' : 'Add'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={publishingSlots || buildBulkSlotPayloads().length === 0}
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-zinc-950 py-3 text-xs font-black text-white shadow hover:bg-zinc-800 disabled:opacity-40 transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>
+                        {publishingSlots
+                          ? 'Publishing Schedule...'
+                          : `Publish ${buildBulkSlotPayloads().length} Open Slots`}
+                      </span>
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleAddSlot} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-extrabold text-zinc-900">
+                        Start Date &amp; Time
+                      </label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={slotStart}
+                        onChange={(e) => setSlotStart(e.target.value)}
+                        className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-extrabold text-zinc-900">
+                          End Date &amp; Time
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setSlotDuration(2)}
+                            className="rounded-lg bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-200"
+                          >
+                            +2h
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSlotDuration(4)}
+                            className="rounded-lg bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-200"
+                          >
+                            +4h
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSlotDuration(8)}
+                            className="rounded-lg bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-700 hover:bg-zinc-200"
+                          >
+                            Full Day
+                          </button>
+                        </div>
+                      </div>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={slotEnd}
+                        onChange={(e) => setSlotEnd(e.target.value)}
+                        className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-zinc-950 py-3 text-xs font-black text-white shadow hover:bg-zinc-800 transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Publish Open Slot</span>
+                    </button>
+                  </form>
+                )}
 
                 <div className="space-y-2 border-t border-zinc-200 pt-4">
                   <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">
                     Published Slots ({data.slots.length})
                   </h3>
-                  {data.slots.length === 0 ? (
-                    <p className="text-xs text-zinc-500">No open slots published yet.</p>
-                  ) : (
-                    data.slots.map((s) => (
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {data.slots.length === 0 ? (
+                      <p className="text-xs text-zinc-500">
+                        No open slots published yet. Clients will see &ldquo;Not Available&rdquo; until you publish your schedule.
+                      </p>
+                    ) : (
+                      data.slots.map((s) => (
                       <div
                         key={s.id}
                         className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs font-semibold gap-2"
@@ -620,7 +924,8 @@ export default function PhotographerPortalPage() {
                         </div>
                       </div>
                     ))
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -721,6 +1026,37 @@ export default function PhotographerPortalPage() {
                     />
                   </div>
                 </div>
+                {(data.profile.services_and_prices || []).length > 0 && (
+                  <div className="sm:col-span-2 space-y-2 pt-2 border-t border-zinc-100">
+                    <label className="block text-xs font-extrabold text-zinc-900">
+                      Your Published Shoot Packages &amp; Pricing ({data.profile.services_and_prices.length})
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                      {data.profile.services_and_prices.map((svc, idx) => (
+                        <div
+                          key={`${svc.title}-${idx}`}
+                          className="flex items-center justify-between gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-zinc-950 truncate">{svc.title}</p>
+                            <p className="text-[11px] font-semibold text-zinc-600">
+                              {formatNaira(svc.price)} • {svc.duration_hours || 2} hrs
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void handleRemoveService(idx)}
+                            className="p-1.5 text-zinc-400 hover:text-red-600 transition-colors shrink-0"
+                            title="Remove package"
+                            aria-label="Remove package"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-extrabold text-zinc-900">
                     Photographer Bio &amp; Specialties
@@ -737,7 +1073,7 @@ export default function PhotographerPortalPage() {
 
               <button
                 type="submit"
-                className="rounded-full bg-zinc-950 px-6 py-3 text-xs font-black text-white shadow"
+                className="rounded-full bg-zinc-950 px-6 py-3 text-xs font-black text-white shadow hover:bg-zinc-800 transition-colors"
               >
                 Save Profile &amp; Packages
               </button>

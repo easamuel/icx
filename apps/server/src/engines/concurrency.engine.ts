@@ -396,6 +396,7 @@ export async function requestPhotographerSlotTransaction(params: {
   photographerProfileId: string;
   slotId: string;
   serviceTitle: string;
+  notes?: string;
 }): Promise<{ booking: BookingRecord; slot: AvailabilitySlotRecord }> {
   const result = await withTransaction(async (client) => {
     // 1. Verify photographer profile is approved (live only when approved by admin)
@@ -447,26 +448,30 @@ export async function requestPhotographerSlotTransaction(params: {
       );
     }
 
-    // 3. Look up service price from photographer's services_and_prices JSONB
+    // 3. Look up service price from photographer's services_and_prices JSONB or default packages
     const matchedService = (photog.services_and_prices || []).find(
       (s) => s.title.toLowerCase() === params.serviceTitle.toLowerCase()
     );
-    if (!matchedService) {
+    const defaultPrice = DEFAULT_PACKAGE_PRICES[params.serviceTitle];
+    if (!matchedService && !defaultPrice) {
       throw new ConcurrencyConflictError(
         'SERVICE_NOT_FOUND',
         'Selected service is not offered by this photographer.'
       );
     }
 
+    const resolvedTitle = matchedService ? matchedService.title : params.serviceTitle;
+    const resolvedPrice = matchedService ? matchedService.price : defaultPrice!;
+
     // 4. Fetch platform commission rate set by Admin (Requirement PB-07, AD-06)
     const settingsRes = await client.query<{
       value: { photographer_commission_rate?: number };
-    }>("SELECT value FROM platform_settings WHERE key = 'pricing_config' LIMIT 1");
+    }>("SELECT value FROM platform_settings WHERE key IN ('pricing_config', 'commission_rates') LIMIT 1");
     const commissionRate = Number(
       settingsRes.rows[0]?.value?.photographer_commission_rate ?? 15.0
     );
 
-    const priceBigInt = BigInt(matchedService.price);
+    const priceBigInt = BigInt(resolvedPrice);
     const commissionAmount =
       (priceBigInt * BigInt(Math.round(commissionRate * 100))) / 10000n;
 
@@ -479,19 +484,23 @@ export async function requestPhotographerSlotTransaction(params: {
       [params.slotId]
     );
 
+    const slotBookingDate = new Date(slot.start_time).toISOString().slice(0, 10);
+
     // 6. Create booking record in 'requested' status
     const bookingRes = await client.query<BookingRecord>(
       `INSERT INTO bookings (
          customer_id, photographer_id, slot_id, service_title,
-         price, commission_rate, commission_amount, status
+         booking_date, notes, price, commission_rate, commission_amount, status
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'requested')
+       VALUES ($1, $2, $3, $4, $5::date, $6, $7, $8, $9, 'requested')
        RETURNING *`,
       [
         params.customerId,
         params.photographerProfileId,
         params.slotId,
-        matchedService.title,
+        resolvedTitle,
+        slotBookingDate,
+        params.notes?.trim() || null,
         priceBigInt.toString(),
         commissionRate.toFixed(2),
         commissionAmount.toString(),

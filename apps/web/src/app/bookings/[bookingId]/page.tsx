@@ -26,8 +26,13 @@ interface BookingDetailView {
     price: string;
     status: string;
     photographer_name: string;
-    start_time: string;
-    end_time: string;
+    photographer_location?: string | null;
+    start_time: string | null;
+    end_time: string | null;
+    booking_date?: string | null;
+    package_type?: string | null;
+    time_period?: string | null;
+    notes?: string | null;
   };
   deliverables: Array<{
     id: string;
@@ -179,9 +184,42 @@ export default function CustomerBookingReviewPage() {
                   {data.booking.service_title} — {data.booking.photographer_name}
                 </h1>
                 <p className="mt-1 text-xs sm:text-sm text-zinc-600">
-                  Session Slot: {new Date(data.booking.start_time).toLocaleString()} • Session Fee:{' '}
+                  Session:{' '}
+                  {data.booking.start_time
+                    ? `${new Date(data.booking.start_time).toLocaleDateString('en-NG', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })} • ${new Date(data.booking.start_time).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}${
+                        data.booking.end_time
+                          ? ` – ${new Date(data.booking.end_time).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}`
+                          : ''
+                      }`
+                    : data.booking.booking_date
+                    ? `${new Date(data.booking.booking_date).toLocaleDateString('en-NG', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        timeZone: 'UTC',
+                      })}${data.booking.time_period ? ` • ${data.booking.time_period}` : ''}`
+                    : 'Schedule pending confirmation'}{' '}
+                  {data.booking.photographer_location ? `• ${data.booking.photographer_location} ` : ''}
+                  • Session Fee:{' '}
                   <strong className="text-zinc-950">{formatNaira(data.booking.price)}</strong>
                 </p>
+                {data.booking.notes && (
+                  <p className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
+                    <strong className="text-zinc-950">Notes:</strong> {data.booking.notes}
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5">
