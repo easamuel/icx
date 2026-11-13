@@ -105,6 +105,8 @@ export default function AdminExecutiveDashboardPage() {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [rejectingProfileId, setRejectingProfileId] = useState<string | null>(null);
   const [rejectionReasonText, setRejectionReasonText] = useState('');
+  const [updatingProfileId, setUpdatingProfileId] = useState<string | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [equipment, setEquipment] = useState<Array<Record<string, any>>>([]);
   const [rentals, setRentals] = useState<Array<Record<string, any>>>([]);
   const [depositPct, setDepositPct] = useState(70);
@@ -204,12 +206,34 @@ export default function AdminExecutiveDashboardPage() {
     userId: string,
     payload: { status?: string; role?: string; verify_email?: boolean }
   ) {
-    await apiFetch(`/admin/users/${userId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    });
-    setStatusBanner('Updated user account record.');
-    await loadAdminData();
+    setError(null);
+    setUpdatingUserId(userId);
+    try {
+      const res = await apiFetch<{ user: Record<string, any> }>(`/admin/users/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      if (res?.user) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, ...res.user } : u))
+        );
+        if (payload.verify_email) {
+          setPhotographers((prev) =>
+            prev.map((p) =>
+              p.user_id === userId
+                ? { ...p, email_verified_at: res.user.email_verified_at || new Date().toISOString() }
+                : p
+            )
+          );
+        }
+      }
+      setStatusBanner('Updated user account record.');
+      void loadAdminData().catch(() => {});
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to update user account.');
+    } finally {
+      setUpdatingUserId(null);
+    }
   }
 
   async function handleAssignJob(
@@ -234,20 +258,63 @@ export default function AdminExecutiveDashboardPage() {
     rejectionReason?: string
   ) {
     setError(null);
+    setUpdatingProfileId(profileId);
     try {
-      await apiFetch(`/admin/photographers/${profileId}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          approval_status: approvalStatus,
-          rejection_reason: rejectionReason,
-        }),
-      });
+      const res = await apiFetch<{ profile: Record<string, any> }>(
+        `/admin/photographers/${profileId}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            approval_status: approvalStatus,
+            rejection_reason: rejectionReason,
+          }),
+        }
+      );
+
+      setPhotographers((prev) =>
+        prev.map((p) =>
+          p.id === profileId
+            ? {
+                ...p,
+                approval_status: res?.profile?.approval_status ?? approvalStatus,
+                rejection_reason:
+                  approvalStatus === 'rejected'
+                    ? (res?.profile?.rejection_reason ?? rejectionReason ?? null)
+                    : null,
+                ...(approvalStatus === 'approved' && !p.email_verified_at
+                  ? { email_verified_at: new Date().toISOString() }
+                  : {}),
+              }
+            : p
+        )
+      );
+
+      if (inspectingDetails?.photographerProfile?.id === profileId) {
+        setInspectingDetails((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                photographerProfile: {
+                  ...prev.photographerProfile,
+                  approval_status: res?.profile?.approval_status ?? approvalStatus,
+                  rejection_reason:
+                    approvalStatus === 'rejected'
+                      ? (res?.profile?.rejection_reason ?? rejectionReason ?? null)
+                      : null,
+                },
+              }
+            : prev
+        );
+      }
+
       setRejectingProfileId(null);
       setRejectionReasonText('');
-      setStatusBanner(`Photographer profile updated to ${approvalStatus}`);
-      await loadAdminData();
+      setStatusBanner(`Photographer profile updated to ${approvalStatus}.`);
+      void loadAdminData().catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to update photographer status.');
+    } finally {
+      setUpdatingProfileId(null);
     }
   }
 
@@ -1067,12 +1134,49 @@ export default function AdminExecutiveDashboardPage() {
 
                   {/* Photographer Profile if applicable */}
                   {inspectingDetails.photographerProfile && (
-                    <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-4">
-                      <h3 className="text-sm font-black text-purple-950 mb-1">Photographer Roster Record</h3>
+                    <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <h3 className="text-sm font-black text-purple-950">Photographer Roster Record</h3>
+                          <p className="text-[11px] text-purple-700 mt-0.5 font-semibold">
+                            Location: {inspectingDetails.photographerProfile.location || 'Lagos'} • Approval:{' '}
+                            <span className="uppercase font-black">
+                              {inspectingDetails.photographerProfile.approval_status}
+                            </span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={updatingProfileId === inspectingDetails.photographerProfile.id}
+                            onClick={() =>
+                              void handlePhotographerApproval(
+                                inspectingDetails.photographerProfile.id,
+                                'approved'
+                              )
+                            }
+                            className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                          >
+                            {updatingProfileId === inspectingDetails.photographerProfile.id
+                              ? 'Updating...'
+                              : 'Approve Photographer'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={updatingProfileId === inspectingDetails.photographerProfile.id}
+                            onClick={() =>
+                              void handlePhotographerApproval(
+                                inspectingDetails.photographerProfile.id,
+                                'suspended'
+                              )
+                            }
+                            className="rounded-full bg-amber-500 px-3 py-1.5 text-xs font-black text-zinc-950 hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                          >
+                            Suspend
+                          </button>
+                        </div>
+                      </div>
                       <p className="text-xs text-purple-800">{inspectingDetails.photographerProfile.bio || 'No bio provided'}</p>
-                      <p className="text-[11px] text-purple-700 mt-1 font-semibold">
-                        Location: {inspectingDetails.photographerProfile.location || 'Lagos'} • Approval: {inspectingDetails.photographerProfile.approval_status}
-                      </p>
                     </div>
                   )}
                 </div>
@@ -1277,34 +1381,42 @@ export default function AdminExecutiveDashboardPage() {
                       {!emailVerified && (
                         <button
                           type="button"
+                          disabled={updatingUserId === p.user_id || updatingProfileId === p.id}
                           onClick={() => void handleModifyUser(p.user_id, { verify_email: true })}
-                          className="rounded-full bg-blue-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-blue-700 transition-colors shadow-xs"
+                          className="rounded-full bg-blue-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-xs"
                           title="Verify email address for this photographer"
                         >
-                          Verify Email First
+                          {updatingUserId === p.user_id ? 'Verifying...' : 'Verify Email First'}
                         </button>
                       )}
                       <button
                         type="button"
+                        disabled={updatingProfileId === p.id}
                         onClick={() => void handlePhotographerApproval(p.id, 'approved')}
-                        className="rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                        className="rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-xs"
                       >
-                        Approve
+                        {updatingProfileId === p.id
+                          ? 'Updating...'
+                          : p.approval_status === 'approved'
+                          ? 'Approved ✓'
+                          : 'Approve'}
                       </button>
                       <button
                         type="button"
+                        disabled={updatingProfileId === p.id}
                         onClick={() => void handlePhotographerApproval(p.id, 'suspended')}
-                        className="rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-black text-zinc-950 hover:bg-amber-600 transition-colors"
+                        className="rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-black text-zinc-950 hover:bg-amber-600 disabled:opacity-50 transition-colors"
                       >
                         Suspend
                       </button>
                       <button
                         type="button"
+                        disabled={updatingProfileId === p.id}
                         onClick={() => {
                           setRejectingProfileId(p.id);
                           setRejectionReasonText('');
                         }}
-                        className="rounded-full border border-red-200 bg-red-50 px-3.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
+                        className="rounded-full border border-red-200 bg-red-50 px-3.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50 transition-colors"
                       >
                         Reject
                       </button>
@@ -1847,6 +1959,36 @@ export default function AdminExecutiveDashboardPage() {
           </div>
         )}
       </main>
+
+      {/* Floating Toast Feedback (always visible regardless of scroll) */}
+      {(statusBanner || error) && (
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full px-4 sm:px-0">
+          {statusBanner && (
+            <div className="flex items-center justify-between rounded-2xl border border-emerald-300 bg-emerald-600 px-4 py-3 text-xs font-bold text-white shadow-xl">
+              <span>{statusBanner}</span>
+              <button
+                type="button"
+                onClick={() => setStatusBanner(null)}
+                className="ml-3 font-black text-emerald-100 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          {error && (
+            <div className="flex items-center justify-between rounded-2xl border border-red-300 bg-red-600 px-4 py-3 text-xs font-bold text-white shadow-xl">
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="ml-3 font-black text-red-100 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Minimal Footer */}
       <footer className="border-t border-zinc-200 bg-white py-6">
