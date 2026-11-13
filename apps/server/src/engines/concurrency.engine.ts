@@ -518,7 +518,7 @@ export async function requestPhotographerSlotTransaction(params: {
         details: {
           slotId: params.slotId,
           photographerId: params.photographerProfileId,
-          serviceTitle: matchedService.title,
+          serviceTitle: resolvedTitle,
           price: priceBigInt.toString(),
         },
       },
