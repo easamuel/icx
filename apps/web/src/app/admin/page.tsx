@@ -102,6 +102,10 @@ export default function AdminExecutiveDashboardPage() {
   const [bookings, setBookings] = useState<Array<Record<string, any>>>([]);
   const [jobs, setJobs] = useState<Array<Record<string, any>>>([]);
   const [photographers, setPhotographers] = useState<Array<Record<string, any>>>([]);
+  const [photographerFilter, setPhotographerFilter] = useState<
+    'all' | 'pending' | 'approved' | 'confirmed' | 'unconfirmed' | 'suspended_rejected'
+  >('all');
+  const [photographerSearch, setPhotographerSearch] = useState('');
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [rejectingProfileId, setRejectingProfileId] = useState<string | null>(null);
   const [rejectionReasonText, setRejectionReasonText] = useState('');
@@ -548,6 +552,46 @@ export default function AdminExecutiveDashboardPage() {
       const matchPhone = String(u.phone || '').toLowerCase().includes(q);
       const matchRole = String(u.role || '').toLowerCase().includes(q);
       if (!matchName && !matchEmail && !matchPhone && !matchRole) return false;
+    }
+    return true;
+  });
+
+  const pendingPhotographersCount = photographers.filter(
+    (p) => p.approval_status === 'pending'
+  ).length;
+  const approvedPhotographersCount = photographers.filter(
+    (p) => p.approval_status === 'approved'
+  ).length;
+  const confirmedPhotographersCount = photographers.filter((p) =>
+    Boolean(p.email_verified_at)
+  ).length;
+  const unconfirmedPhotographersCount = photographers.length - confirmedPhotographersCount;
+  const suspendedOrRejectedPhotographersCount = photographers.filter(
+    (p) => p.approval_status === 'suspended' || p.approval_status === 'rejected'
+  ).length;
+
+  const filteredPhotographers = photographers.filter((p) => {
+    if (photographerFilter === 'pending' && p.approval_status !== 'pending') return false;
+    if (photographerFilter === 'approved' && p.approval_status !== 'approved') return false;
+    if (photographerFilter === 'confirmed' && !p.email_verified_at) return false;
+    if (photographerFilter === 'unconfirmed' && p.email_verified_at) return false;
+    if (
+      photographerFilter === 'suspended_rejected' &&
+      p.approval_status !== 'suspended' &&
+      p.approval_status !== 'rejected'
+    ) {
+      return false;
+    }
+    if (photographerSearch.trim()) {
+      const q = photographerSearch.toLowerCase().trim();
+      const matchName = String(p.full_name || '').toLowerCase().includes(q);
+      const matchEmail = String(p.email || '').toLowerCase().includes(q);
+      const matchPhone = String(p.phone || '').toLowerCase().includes(q);
+      const matchLocation = String(p.location || '').toLowerCase().includes(q);
+      const matchSpecialty = String(p.specialty || '').toLowerCase().includes(q);
+      if (!matchName && !matchEmail && !matchPhone && !matchLocation && !matchSpecialty) {
+        return false;
+      }
     }
     return true;
   });
@@ -1139,7 +1183,9 @@ export default function AdminExecutiveDashboardPage() {
                         <div>
                           <h3 className="text-sm font-black text-purple-950">Photographer Roster Record</h3>
                           <p className="text-[11px] text-purple-700 mt-0.5 font-semibold">
-                            Location: {inspectingDetails.photographerProfile.location || 'Lagos'} • Approval:{' '}
+                            {inspectingDetails.photographerProfile.specialty || 'General Photography'} •{' '}
+                            {inspectingDetails.photographerProfile.years_experience ?? 0} yrs experience •{' '}
+                            {inspectingDetails.photographerProfile.location || 'Lagos'} • Approval:{' '}
                             <span className="uppercase font-black">
                               {inspectingDetails.photographerProfile.approval_status}
                             </span>
@@ -1159,6 +1205,8 @@ export default function AdminExecutiveDashboardPage() {
                           >
                             {updatingProfileId === inspectingDetails.photographerProfile.id
                               ? 'Updating...'
+                              : inspectingDetails.photographerProfile.approval_status === 'approved'
+                              ? 'Approved ✓'
                               : 'Approve Photographer'}
                           </button>
                           <button
@@ -1176,7 +1224,41 @@ export default function AdminExecutiveDashboardPage() {
                           </button>
                         </div>
                       </div>
-                      <p className="text-xs text-purple-800">{inspectingDetails.photographerProfile.bio || 'No bio provided'}</p>
+                      <p className="text-xs text-purple-900">
+                        {inspectingDetails.photographerProfile.bio || 'No bio provided.'}
+                      </p>
+                      {inspectingDetails.photographerProfile.rejection_reason && (
+                        <p className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
+                          Rejection Reason: {inspectingDetails.photographerProfile.rejection_reason}
+                        </p>
+                      )}
+                      {Array.isArray(inspectingDetails.photographerProfile.portfolio_urls) &&
+                        inspectingDetails.photographerProfile.portfolio_urls.filter(Boolean).length > 0 && (
+                          <div className="pt-2 border-t border-purple-200/70">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-purple-700 mb-2">
+                              Proof-of-Work Portfolio (
+                              {inspectingDetails.photographerProfile.portfolio_urls.filter(Boolean).length} photos — click to inspect)
+                            </p>
+                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                              {(inspectingDetails.photographerProfile.portfolio_urls as string[])
+                                .filter(Boolean)
+                                .map((imgUrl, idx) => (
+                                  <button
+                                    key={`modal-proof-${idx}`}
+                                    type="button"
+                                    onClick={() => setLightboxImage(imgUrl)}
+                                    className="aspect-square rounded-xl overflow-hidden border border-purple-200 bg-white hover:ring-2 hover:ring-purple-900 transition-all"
+                                  >
+                                    <img
+                                      src={imgUrl}
+                                      alt={`Portfolio sample ${idx + 1}`}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
                     </div>
                   )}
                 </div>
@@ -1316,137 +1398,215 @@ export default function AdminExecutiveDashboardPage() {
         {/* TAB 5: PHOTOGRAPHER ONBOARDING APPROVALS */}
         {activeTab === 'photographers' && (
           <div className="rounded-2xl sm:rounded-3xl border border-zinc-200 bg-white p-4 sm:p-6 lg:p-8 shadow-sm space-y-5">
-            <h2 className="text-base sm:text-lg font-black text-zinc-950">
-              Photographer Roster &amp; Proof-of-Work Applications ({photographers.length})
-            </h2>
-            {photographers.map((p) => {
-              const proofImages = Array.isArray(p.portfolio_urls)
-                ? (p.portfolio_urls as string[]).filter(Boolean)
-                : [];
-              const emailVerified = Boolean(p.email_verified_at);
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-zinc-950">
+                  Photographer Roster &amp; Applications ({filteredPhotographers.length})
+                </h2>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Inspect full portfolios, verify email confirmations, impersonate workspaces, and approve photographers.
+                </p>
+              </div>
+              <input
+                type="search"
+                value={photographerSearch}
+                onChange={(e) => setPhotographerSearch(e.target.value)}
+                placeholder="Search name, email, phone, location, specialty..."
+                className="w-full lg:w-80 rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-xs text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+              />
+            </div>
 
-              return (
-                <div
-                  key={p.id}
-                  className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 sm:p-6 space-y-4 min-w-0"
+            {/* Filter Pills */}
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  { id: 'all', label: `All (${photographers.length})` },
+                  { id: 'pending', label: `Pending (${pendingPhotographersCount})` },
+                  { id: 'approved', label: `Approved (${approvedPhotographersCount})` },
+                  { id: 'confirmed', label: `Email Confirmed (${confirmedPhotographersCount})` },
+                  { id: 'unconfirmed', label: `Email Unconfirmed (${unconfirmedPhotographersCount})` },
+                  {
+                    id: 'suspended_rejected',
+                    label: `Suspended / Rejected (${suspendedOrRejectedPhotographersCount})`,
+                  },
+                ] as const
+              ).map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setPhotographerFilter(pill.id)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
+                    photographerFilter === pill.id
+                      ? 'bg-zinc-950 text-white'
+                      : 'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100'
+                  }`}
                 >
-                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
-                      <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl overflow-hidden bg-zinc-200 shrink-0 border border-zinc-200 shadow-sm">
-                        <img
-                          src={p.avatar_url || proofImages[0] || DEFAULT_PHOTOG_IMG}
-                          alt={p.full_name}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = DEFAULT_PHOTOG_IMG;
-                          }}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm sm:text-base font-black text-zinc-950 truncate">
-                            {p.full_name}
-                          </span>
-                          <span className="rounded-full bg-zinc-950 px-2.5 py-0.5 text-[10px] font-black uppercase text-white shrink-0">
-                            {p.approval_status}
-                          </span>
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-                              emailVerified
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-amber-100 text-amber-800'
-                            }`}
-                          >
-                            {emailVerified ? 'Email Verified' : 'Email Unverified'}
-                          </span>
-                        </div>
-                        <p className="text-xs font-semibold text-zinc-600 break-words">
-                          {p.email} • {p.phone || 'No phone'} • {p.location || 'Lagos, Nigeria'}
-                        </p>
-                        {(p.specialty || p.years_experience) && (
-                          <p className="text-xs font-bold text-zinc-800">
-                            {p.specialty || 'General'} • {p.years_experience ?? 0} yrs experience
-                          </p>
-                        )}
-                        <p className="text-xs text-zinc-600">{p.bio || 'No bio submitted.'}</p>
-                        {p.rejection_reason && (
-                          <p className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 mt-1">
-                            Rejection Reason: {p.rejection_reason}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                  {pill.label}
+                </button>
+              ))}
+            </div>
 
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      {!emailVerified && (
-                        <button
-                          type="button"
-                          disabled={updatingUserId === p.user_id || updatingProfileId === p.id}
-                          onClick={() => void handleModifyUser(p.user_id, { verify_email: true })}
-                          className="rounded-full bg-blue-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-xs"
-                          title="Verify email address for this photographer"
-                        >
-                          {updatingUserId === p.user_id ? 'Verifying...' : 'Verify Email First'}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={updatingProfileId === p.id}
-                        onClick={() => void handlePhotographerApproval(p.id, 'approved')}
-                        className="rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-xs"
-                      >
-                        {updatingProfileId === p.id
-                          ? 'Updating...'
-                          : p.approval_status === 'approved'
-                          ? 'Approved ✓'
-                          : 'Approve'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={updatingProfileId === p.id}
-                        onClick={() => void handlePhotographerApproval(p.id, 'suspended')}
-                        className="rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-black text-zinc-950 hover:bg-amber-600 disabled:opacity-50 transition-colors"
-                      >
-                        Suspend
-                      </button>
-                      <button
-                        type="button"
-                        disabled={updatingProfileId === p.id}
-                        onClick={() => {
-                          setRejectingProfileId(p.id);
-                          setRejectionReasonText('');
-                        }}
-                        className="rounded-full border border-red-200 bg-red-50 px-3.5 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100 disabled:opacity-50 transition-colors"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
+            {/* Compact High-Density Roster Rows */}
+            <div className="divide-y divide-zinc-200 border border-zinc-200 rounded-2xl overflow-hidden bg-white">
+              {filteredPhotographers.length === 0 ? (
+                <div className="p-8 text-center text-xs font-medium text-zinc-500">
+                  No photographers match your current filter.
+                </div>
+              ) : (
+                filteredPhotographers.map((p) => {
+                  const proofImages = Array.isArray(p.portfolio_urls)
+                    ? (p.portfolio_urls as string[]).filter(Boolean)
+                    : [];
+                  const emailVerified = Boolean(p.email_verified_at);
+                  const userTarget = {
+                    id: p.user_id,
+                    full_name: p.full_name,
+                    email: p.email,
+                    role: 'photographer',
+                    status: p.user_status || 'active',
+                    email_verified_at: p.email_verified_at,
+                  };
 
-                  {/* Proof-of-Work Gallery */}
-                  {proofImages.length > 0 && (
-                    <div className="pt-2 border-t border-zinc-200/70">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
-                        Proof-of-Work Portfolio ({proofImages.length} images — click to inspect)
-                      </p>
-                      <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                        {proofImages.map((imgUrl, idx) => (
-                          <button
-                            key={`${p.id}-proof-${idx}`}
-                            type="button"
-                            onClick={() => setLightboxImage(imgUrl)}
-                            className="aspect-square rounded-xl overflow-hidden border border-zinc-200 bg-white hover:ring-2 hover:ring-zinc-950 transition-all"
-                          >
+                  const approvalBadgeClass =
+                    p.approval_status === 'approved'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                      : p.approval_status === 'pending'
+                      ? 'bg-amber-100 text-amber-900 border-amber-200'
+                      : p.approval_status === 'suspended'
+                      ? 'bg-orange-100 text-orange-800 border-orange-200'
+                      : 'bg-red-100 text-red-700 border-red-200';
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="p-3.5 sm:px-5 sm:py-4 hover:bg-zinc-50/80 transition-colors space-y-3"
+                    >
+                      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="h-11 w-11 rounded-xl overflow-hidden bg-zinc-200 shrink-0 border border-zinc-200">
                             <img
-                              src={imgUrl}
-                              alt={`${p.full_name} proof ${idx + 1}`}
+                              src={p.avatar_url || proofImages[0] || DEFAULT_PHOTOG_IMG}
+                              alt={p.full_name}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = DEFAULT_PHOTOG_IMG;
+                              }}
                               className="h-full w-full object-cover"
                             />
+                          </div>
+
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-sm font-black text-zinc-950 truncate">
+                                {p.full_name}
+                              </span>
+                              <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${approvalBadgeClass}`}
+                              >
+                                {p.approval_status}
+                              </span>
+                              {emailVerified ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-black uppercase text-white">
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                  <span>Email Confirmed</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-black uppercase text-amber-900">
+                                  <Clock className="h-2.5 w-2.5" />
+                                  <span>Email Unconfirmed</span>
+                                </span>
+                              )}
+                              {p.user_status === 'suspended' && (
+                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase text-red-700">
+                                  Account Suspended
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-xs font-medium text-zinc-600 truncate">
+                              {p.email} • {p.phone || 'No phone'} • {p.location || 'Lagos'} •{' '}
+                              {p.specialty || 'General'} ({p.years_experience ?? 0}y) •{' '}
+                              <span className="font-bold text-zinc-800">
+                                {proofImages.length} portfolio photos
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => void handleOpenUserDetails(userTarget)}
+                            className="inline-flex items-center gap-1 rounded-full border border-zinc-300 bg-white hover:bg-zinc-100 px-2.5 py-1.5 text-[11px] font-bold text-zinc-800 transition-colors"
+                            title="Inspect full photographer profile, portfolio gallery, bookings, and ledger"
+                          >
+                            <Eye className="h-3 w-3 text-zinc-600" />
+                            <span>View Details</span>
                           </button>
-                        ))}
+
+                          <button
+                            type="button"
+                            onClick={() => void handleImpersonateUser(userTarget)}
+                            className="inline-flex items-center gap-1 rounded-full border border-zinc-900 bg-zinc-950 hover:bg-zinc-800 px-2.5 py-1.5 text-[11px] font-bold text-white transition-colors"
+                            title="Sign in directly to Photographer Portal as this photographer"
+                          >
+                            <LogIn className="h-3 w-3 text-emerald-400" />
+                            <span>Login As</span>
+                          </button>
+
+                          {!emailVerified && (
+                            <button
+                              type="button"
+                              disabled={updatingUserId === p.user_id || updatingProfileId === p.id}
+                              onClick={() => void handleModifyUser(p.user_id, { verify_email: true })}
+                              className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-2.5 py-1.5 text-[11px] font-black text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                              title="Verify email address for this photographer"
+                            >
+                              <MailCheck className="h-3 w-3" />
+                              <span>{updatingUserId === p.user_id ? 'Verifying...' : 'Verify Email'}</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            disabled={updatingProfileId === p.id}
+                            onClick={() => void handlePhotographerApproval(p.id, 'approved')}
+                            className="rounded-full bg-emerald-600 px-3 py-1.5 text-[11px] font-black text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                          >
+                            {updatingProfileId === p.id
+                              ? 'Updating...'
+                              : p.approval_status === 'approved'
+                              ? 'Approved ✓'
+                              : 'Approve'}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={updatingProfileId === p.id}
+                            onClick={() => void handlePhotographerApproval(p.id, 'suspended')}
+                            className="rounded-full bg-amber-500 px-2.5 py-1.5 text-[11px] font-black text-zinc-950 hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                          >
+                            Suspend
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={updatingProfileId === p.id}
+                            onClick={() => {
+                              setRejectingProfileId(rejectingProfileId === p.id ? null : p.id);
+                              setRejectionReasonText('');
+                            }}
+                            className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-50 transition-colors"
+                          >
+                            Reject
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+
+                      {p.rejection_reason && (
+                        <p className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
+                          Rejection Reason: {p.rejection_reason}
+                        </p>
+                      )}
 
                   {/* Inline Rejection Reason Form */}
                   {rejectingProfileId === p.id && (
@@ -1487,34 +1647,10 @@ export default function AdminExecutiveDashboardPage() {
                     </div>
                   )}
                 </div>
-              );
-            })}
-
-            {/* Lightbox Modal for Proof-of-Work Inspection */}
-            {lightboxImage && (
-              <div
-                onClick={() => setLightboxImage(null)}
-                className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4"
-              >
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="relative max-w-4xl max-h-[90vh] bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setLightboxImage(null)}
-                    className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-zinc-950 hover:bg-white"
-                  >
-                    Close
-                  </button>
-                  <img
-                    src={lightboxImage}
-                    alt="Proof of work inspection"
-                    className="max-h-[85vh] w-auto object-contain"
-                  />
-                </div>
-              </div>
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
 
@@ -1959,6 +2095,32 @@ export default function AdminExecutiveDashboardPage() {
           </div>
         )}
       </main>
+
+      {/* Lightbox Modal for Proof-of-Work Inspection */}
+      {lightboxImage && (
+        <div
+          onClick={() => setLightboxImage(null)}
+          className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-xs flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-4xl max-h-[90vh] bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl"
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute top-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-zinc-950 hover:bg-white"
+            >
+              Close
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Proof of work inspection"
+              className="max-h-[85vh] w-auto object-contain"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Floating Toast Feedback (always visible regardless of scroll) */}
       {(statusBanner || error) && (
