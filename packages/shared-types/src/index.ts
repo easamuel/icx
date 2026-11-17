@@ -312,6 +312,10 @@ export const RentalFormDetailsSchema = z.object({
   phone: NigerianPhoneSchema,
   email: z.string().email(),
   address: z.string().min(5).max(500),
+  id_document_type: z
+    .enum(['International Passport', 'NIN Slip / Card', "Driver's License"])
+    .optional(),
+  id_document_url: z.string().min(1).max(1000).optional(),
   government_id_number: z.string().min(4).max(100).optional(),
   project_description: z.string().max(500).optional(),
   extra_fields: z.record(z.string(), z.unknown()).optional(),
@@ -322,6 +326,21 @@ export const CreateRentalHoldSchema = z.object({
   units: z.number().int().min(1).max(50),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
+  form_details: RentalFormDetailsSchema,
+});
+
+export const CreateRentalCartCheckoutSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        item_id: z.string().uuid(),
+        units: z.number().int().min(1).max(50),
+        start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
+        end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
+      })
+    )
+    .min(1)
+    .max(25),
   form_details: RentalFormDetailsSchema,
 });
 

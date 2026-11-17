@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import {
   CreateRentalHoldSchema,
+  CreateRentalCartCheckoutSchema,
   type EquipmentItemRecord,
   type RentalRecord,
 } from '@icx/shared-types';
@@ -70,6 +71,62 @@ rentalsRouter.get(
 );
 
 // ============================================================================
+// 2b. GET /api/v1/rentals/renter-profile
+// Returns saved renter identity & uploaded ID document so returning customers
+// never have to re-enter or re-upload their verification details.
+// ============================================================================
+rentalsRouter.get(
+  '/renter-profile',
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userRes = await query<{
+        full_name: string;
+        email: string;
+        phone: string | null;
+        renter_profile: Record<string, unknown> | null;
+      }>(
+        `SELECT full_name, email, phone, renter_profile
+         FROM users
+         WHERE id = $1
+         LIMIT 1`,
+        [req.user!.sub]
+      );
+      const userRow = userRes.rows[0];
+      if (!userRow) {
+        res.status(404).json({ error: 'USER_NOT_FOUND' });
+        return;
+      }
+
+      let profile = userRow.renter_profile;
+      if (!profile) {
+        const lastRentalRes = await query<{ form_details: Record<string, unknown> | null }>(
+          `SELECT form_details
+           FROM rentals
+           WHERE customer_id = $1
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [req.user!.sub]
+        );
+        profile = lastRentalRes.rows[0]?.form_details ?? null;
+      }
+
+      res.status(200).json({
+        renterProfile: profile,
+        account: {
+          full_name: userRow.full_name,
+          email: userRow.email,
+          phone: userRow.phone,
+        },
+      });
+    } catch (error) {
+      console.error('[ICX-RENTALS] Renter profile fetch error:', error);
+      res.status(500).json({ error: 'RENTER_PROFILE_FETCH_FAILED' });
+    }
+  }
+);
+
+// ============================================================================
 // 3. POST /api/v1/rentals/hold (ER-04, ER-05, ER-06, NF-04)
 // Holds requested units for 30 minutes inside a row-locked PostgreSQL transaction.
 // ============================================================================
@@ -87,14 +144,42 @@ rentalsRouter.post(
     }
 
     try {
+      const existingUserRes = await query<{ renter_profile: Record<string, unknown> | null }>(
+        'SELECT renter_profile FROM users WHERE id = $1 LIMIT 1',
+        [req.user!.sub]
+      );
+      const savedProfile = existingUserRes.rows[0]?.renter_profile || {};
+      const mergedFormDetails = {
+        ...parsed.data.form_details,
+        id_document_type:
+          parsed.data.form_details.id_document_type ||
+          (savedProfile.id_document_type as string | undefined),
+        id_document_url:
+          parsed.data.form_details.id_document_url ||
+          (savedProfile.id_document_url as string | undefined),
+      };
+
+      if (!mergedFormDetails.id_document_url && !mergedFormDetails.government_id_number) {
+        res.status(400).json({
+          error: 'ID_DOCUMENT_REQUIRED',
+          message: 'Please upload a valid Passport, NIN, or Driver’s License document.',
+        });
+        return;
+      }
+
       const rental = await reserveRentalHoldTransaction({
         customerId: req.user!.sub,
         itemId: parsed.data.item_id,
         units: parsed.data.units,
         startDate: parsed.data.start_date,
         endDate: parsed.data.end_date,
-        formDetails: parsed.data.form_details,
+        formDetails: mergedFormDetails,
       });
+
+      await query(
+        `UPDATE users SET renter_profile = $1::jsonb, updated_at = NOW() WHERE id = $2`,
+        [JSON.stringify(mergedFormDetails), req.user!.sub]
+      );
 
       res.status(201).json({
         rental,
@@ -110,6 +195,89 @@ rentalsRouter.post(
       }
       console.error('[ICX-RENTALS] Rental hold error:', error);
       res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+  }
+);
+
+// ============================================================================
+// 3b. POST /api/v1/rentals/checkout (Multi-Gear Cart Checkout)
+// Reserves all items in cart, persists renter profile + uploaded ID once,
+// and returns created rental holds.
+// ============================================================================
+rentalsRouter.post(
+  '/checkout',
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = CreateRentalCartCheckoutSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: 'VALIDATION_ERROR',
+        message: 'Please review your cart items and renter details.',
+        details: parsed.error.flatten(),
+      });
+      return;
+    }
+
+    try {
+      const existingUserRes = await query<{ renter_profile: Record<string, unknown> | null }>(
+        'SELECT renter_profile FROM users WHERE id = $1 LIMIT 1',
+        [req.user!.sub]
+      );
+      const savedProfile = existingUserRes.rows[0]?.renter_profile || {};
+      const mergedFormDetails = {
+        ...parsed.data.form_details,
+        id_document_type:
+          parsed.data.form_details.id_document_type ||
+          (savedProfile.id_document_type as string | undefined),
+        id_document_url:
+          parsed.data.form_details.id_document_url ||
+          (savedProfile.id_document_url as string | undefined),
+      };
+
+      if (!mergedFormDetails.id_document_url && !mergedFormDetails.government_id_number) {
+        res.status(400).json({
+          error: 'ID_DOCUMENT_REQUIRED',
+          message: 'Please upload a valid Passport, NIN, or Driver’s License document.',
+        });
+        return;
+      }
+
+      const createdRentals: RentalRecord[] = [];
+      let totalAmountKobo = 0n;
+
+      for (const item of parsed.data.items) {
+        const rental = await reserveRentalHoldTransaction({
+          customerId: req.user!.sub,
+          itemId: item.item_id,
+          units: item.units,
+          startDate: item.start_date,
+          endDate: item.end_date,
+          formDetails: mergedFormDetails,
+        });
+        createdRentals.push(rental);
+        totalAmountKobo += BigInt(rental.total_amount);
+      }
+
+      await query(
+        `UPDATE users SET renter_profile = $1::jsonb, updated_at = NOW() WHERE id = $2`,
+        [JSON.stringify(mergedFormDetails), req.user!.sub]
+      );
+
+      res.status(201).json({
+        rentals: createdRentals,
+        primaryRentalId: createdRentals[0]?.id ?? null,
+        totalAmountKobo: totalAmountKobo.toString(),
+      });
+    } catch (error) {
+      if (error instanceof ConcurrencyConflictError) {
+        res.status(409).json({
+          error: error.code,
+          message: error.message,
+        });
+        return;
+      }
+      console.error('[ICX-RENTALS] Cart checkout error:', error);
+      res.status(500).json({ error: 'CART_CHECKOUT_FAILED', message: 'Unable to complete rental checkout.' });
     }
   }
 );

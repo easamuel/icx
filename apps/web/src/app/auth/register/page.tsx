@@ -280,7 +280,7 @@ export default function RegisterPage() {
                 }}
                 className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all ${
                   role === 'customer'
-                    ? 'bg-white text-zinc-950 shadow-sm'
+                    ? 'bg-zinc-950 text-white shadow-sm'
                     : 'text-zinc-600 hover:text-zinc-950'
                 }`}
               >

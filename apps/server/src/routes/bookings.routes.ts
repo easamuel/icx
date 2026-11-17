@@ -274,6 +274,7 @@ bookingsRouter.post(
         photographerProfileId: parsed.data.photographer_id,
         slotId: parsed.data.slot_id,
         serviceTitle: parsed.data.service_title,
+        timePeriod: typeof body.time_period === 'string' ? body.time_period : undefined,
         notes: typeof body.notes === 'string' ? body.notes : undefined,
       });
 

@@ -396,6 +396,7 @@ export async function requestPhotographerSlotTransaction(params: {
   photographerProfileId: string;
   slotId: string;
   serviceTitle: string;
+  timePeriod?: string;
   notes?: string;
 }): Promise<{ booking: BookingRecord; slot: AvailabilitySlotRecord }> {
   const result = await withTransaction(async (client) => {
@@ -490,9 +491,9 @@ export async function requestPhotographerSlotTransaction(params: {
     const bookingRes = await client.query<BookingRecord>(
       `INSERT INTO bookings (
          customer_id, photographer_id, slot_id, service_title,
-         booking_date, notes, price, commission_rate, commission_amount, status
+         booking_date, time_period, notes, price, commission_rate, commission_amount, status
        )
-       VALUES ($1, $2, $3, $4, $5::date, $6, $7, $8, $9, 'requested')
+       VALUES ($1, $2, $3, $4, $5::date, $6, $7, $8, $9, $10, 'requested')
        RETURNING *`,
       [
         params.customerId,
@@ -500,6 +501,7 @@ export async function requestPhotographerSlotTransaction(params: {
         params.slotId,
         resolvedTitle,
         slotBookingDate,
+        params.timePeriod?.trim() || null,
         params.notes?.trim() || null,
         priceBigInt.toString(),
         commissionRate.toFixed(2),

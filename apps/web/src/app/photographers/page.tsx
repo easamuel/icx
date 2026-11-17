@@ -101,6 +101,24 @@ function formatSlotWindow(startIso: string, endIso: string): string {
   return `${startStr} – ${endStr}`;
 }
 
+function toHHMM(iso: string): string {
+  const dt = new Date(iso);
+  const h = String(dt.getHours()).padStart(2, '0');
+  const m = String(dt.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function addHoursClamped(startHHMM: string, hours: number, maxHHMM: string): string {
+  const [sh, sm] = startHHMM.split(':').map(Number);
+  const [mh, mm] = maxHHMM.split(':').map(Number);
+  const startMins = (sh || 0) * 60 + (sm || 0);
+  const maxMins = (mh || 23) * 60 + (mm || 59);
+  const target = Math.min(startMins + Math.round(hours * 60), maxMins);
+  const th = String(Math.floor(target / 60)).padStart(2, '0');
+  const tm = String(target % 60).padStart(2, '0');
+  return `${th}:${tm}`;
+}
+
 export default function PhotographersBookingPage() {
   const router = useRouter();
   const [photographers, setPhotographers] = useState<PhotographerListing[]>([]);
@@ -121,8 +139,10 @@ export default function PhotographersBookingPage() {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedSlotId, setSelectedSlotId] = useState<string>('');
 
-  // Step 03: Package & Notes
+  // Step 02: Package & Notes
   const [selectedPackage, setSelectedPackage] = useState<string>('');
+  const [customStartTime, setCustomStartTime] = useState<string>('');
+  const [customEndTime, setCustomEndTime] = useState<string>('');
   const [notes, setNotes] = useState('');
 
   const [bookingLoading, setBookingLoading] = useState(false);
@@ -170,8 +190,12 @@ export default function PhotographersBookingPage() {
           setCalendarMonth({ year: y, month: m - 1 });
         }
         setSelectedDate(dates[0].date);
-        if (dates[0].slots.length === 1 && dates[0].slots[0]) {
+        if (dates[0].slots[0]) {
           setSelectedSlotId(dates[0].slots[0].id);
+          const sHHMM = toHHMM(dates[0].slots[0].start_time);
+          const eHHMM = toHHMM(dates[0].slots[0].end_time);
+          setCustomStartTime(sHHMM);
+          setCustomEndTime(addHoursClamped(sHHMM, 2, eHHMM));
         }
       }
     } catch {
@@ -194,6 +218,13 @@ export default function PhotographersBookingPage() {
     () => (selectedDate ? availableDateMap.get(selectedDate) || null : null),
     [availableDateMap, selectedDate]
   );
+
+  const selectedSlotObj = useMemo(
+    () => selectedDateInfo?.slots.find((s) => s.id === selectedSlotId) || selectedDateInfo?.slots[0] || null,
+    [selectedDateInfo, selectedSlotId]
+  );
+
+  const isFullDayPackage = selectedPackage.toLowerCase().includes('full day');
 
   const packageOptions = useMemo(() => {
     const custom = (selectedPhotographer?.services_and_prices || []).filter(
@@ -236,19 +267,40 @@ export default function PhotographersBookingPage() {
 
   async function handleConfirmBooking(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedPhotographer || !selectedDate || !selectedSlotId || !selectedPackage) return;
+    const activeSlotId = selectedSlotId || selectedSlotObj?.id || '';
+    if (!selectedPhotographer || !selectedDate || !activeSlotId || !selectedPackage) return;
+
+    if (!isFullDayPackage) {
+      if (!customStartTime || !customEndTime || customEndTime <= customStartTime) {
+        setBookingError('Please choose a valid start and end time within the available window.');
+        return;
+      }
+      if (selectedSlotObj) {
+        const minT = toHHMM(selectedSlotObj.start_time);
+        const maxT = toHHMM(selectedSlotObj.end_time);
+        if (customStartTime < minT || customEndTime > maxT) {
+          setBookingError(`Selected time must be within ${minT} – ${maxT}.`);
+          return;
+        }
+      }
+    }
 
     setBookingLoading(true);
     setBookingError(null);
     setBookingSuccess(null);
 
     try {
+      const resolvedTimePeriod = isFullDayPackage
+        ? 'Full Day'
+        : `${customStartTime} – ${customEndTime}`;
+
       await apiFetch('/bookings', {
         method: 'POST',
         body: JSON.stringify({
           photographer_id: selectedPhotographer.id,
-          slot_id: selectedSlotId,
+          slot_id: activeSlotId,
           service_title: selectedPackage,
+          time_period: resolvedTimePeriod,
           notes: notes.trim() || undefined,
         }),
       });
@@ -256,7 +308,7 @@ export default function PhotographersBookingPage() {
       setBookingSuccess(
         `Session slot locked with ${selectedPhotographer.full_name} on ${formatReadableDate(
           selectedDate
-        )} (${selectedPackage}).`
+        )} (${selectedPackage}${!isFullDayPackage ? ` • ${resolvedTimePeriod}` : ''}).`
       );
 
       // Refresh availability and reset selection
@@ -267,6 +319,8 @@ export default function PhotographersBookingPage() {
       setSelectedDate('');
       setSelectedSlotId('');
       setSelectedPackage('');
+      setCustomStartTime('');
+      setCustomEndTime('');
       setNotes('');
       void fetchDirectory(locationFilter);
     } catch (err) {
@@ -514,15 +568,15 @@ export default function PhotographersBookingPage() {
                 </div>
               )}
 
-              {/* STEP 02: Interactive Calendar & Published Time Slots */}
+              {/* STEP 01: Interactive Calendar */}
               {selectedPhotographer && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-950 text-white text-[10px] font-black">
-                      02
+                      01
                     </span>
                     <span className="text-sm font-black text-zinc-950">
-                      Available Dates &amp; Time Slots
+                      Calendar — Choose Available Date
                     </span>
                   </div>
 
@@ -601,11 +655,15 @@ export default function PhotographersBookingPage() {
                                 disabled={!isOpen}
                                 onClick={() => {
                                   setSelectedDate(cell.dateStr);
-                                  setSelectedSlotId(
-                                    dateInfo?.slots.length === 1 && dateInfo.slots[0]
-                                      ? dateInfo.slots[0].id
-                                      : ''
-                                  );
+                                  const firstSlot = dateInfo?.slots[0] || null;
+                                  setSelectedSlotId(firstSlot ? firstSlot.id : '');
+                                  if (firstSlot) {
+                                    const sT = toHHMM(firstSlot.start_time);
+                                    const eT = toHHMM(firstSlot.end_time);
+                                    const hrs = selectedPackage.toLowerCase().includes('half day') ? 4 : 2;
+                                    setCustomStartTime(sT);
+                                    setCustomEndTime(addHoursClamped(sT, hrs, eT));
+                                  }
                                   setBookingError(null);
                                 }}
                                 className={`relative h-9 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center ${
@@ -626,47 +684,15 @@ export default function PhotographersBookingPage() {
                         </div>
                       </div>
 
-                      {/* Time Slots for Selected Date */}
-                      {selectedDateInfo && (
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold uppercase tracking-wider text-zinc-600 flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5" />
-                            Open Time Slots for {formatReadableDate(selectedDateInfo.date)}
-                          </label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {selectedDateInfo.slots.map((slot) => {
-                              const isSlotPicked = selectedSlotId === slot.id;
-                              return (
-                                <button
-                                  key={slot.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedSlotId(slot.id);
-                                    setBookingError(null);
-                                  }}
-                                  className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition-all text-center ${
-                                    isSlotPicked
-                                      ? 'border-zinc-950 bg-zinc-950 text-white shadow-sm'
-                                      : 'border-zinc-200 bg-white text-zinc-800 hover:border-zinc-400'
-                                  }`}
-                                >
-                                  {formatSlotWindow(slot.start_time, slot.end_time)}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* STEP 03: Package & Pricing Selection */}
-                      {selectedSlotId && (
-                        <div className="space-y-4 pt-2 border-t border-zinc-100">
+                      {/* STEP 02: Select a Package */}
+                      {selectedDate && (
+                        <div className="space-y-3 pt-2 border-t border-zinc-100">
                           <div className="flex items-center gap-2">
                             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-950 text-white text-[10px] font-black">
-                              03
+                              02
                             </span>
                             <span className="text-sm font-black text-zinc-950">
-                              Select Package &amp; Pricing
+                              Select a Package
                             </span>
                           </div>
 
@@ -680,6 +706,15 @@ export default function PhotographersBookingPage() {
                                   onClick={() => {
                                     setSelectedPackage(pkg.title);
                                     setBookingError(null);
+                                    if (selectedSlotObj && !pkg.title.toLowerCase().includes('full day')) {
+                                      const sT = toHHMM(selectedSlotObj.start_time);
+                                      const eT = toHHMM(selectedSlotObj.end_time);
+                                      const dur =
+                                        pkg.duration_hours ||
+                                        (pkg.title.toLowerCase().includes('half day') ? 4 : 2);
+                                      setCustomStartTime(sT);
+                                      setCustomEndTime(addHoursClamped(sT, dur, eT));
+                                    }
                                   }}
                                   className={`w-full text-left rounded-2xl border p-4 transition-all flex items-center justify-between gap-3 ${
                                     isChecked
@@ -706,21 +741,136 @@ export default function PhotographersBookingPage() {
                               );
                             })}
                           </div>
+                        </div>
+                      )}
 
-                          {selectedPackage && (
-                            <div className="space-y-1.5">
-                              <label className="text-xs font-bold text-zinc-600">
-                                Session Notes (Optional)
-                              </label>
-                              <textarea
-                                rows={2}
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Location details, moodboard notes, or special requests..."
-                                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
-                              />
+                      {/* STEP 03: Time (if applicable) */}
+                      {selectedDate && selectedDateInfo && (
+                        <div
+                          className={`space-y-3 pt-2 border-t border-zinc-100 transition-opacity ${
+                            !selectedPackage || isFullDayPackage
+                              ? 'opacity-45 pointer-events-none select-none'
+                              : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-950 text-white text-[10px] font-black">
+                                03
+                              </span>
+                              <span className="text-sm font-black text-zinc-950">
+                                Time <span className="text-xs font-medium text-zinc-500">(if applicable)</span>
+                              </span>
+                            </div>
+                            {isFullDayPackage && (
+                              <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-[10px] font-bold text-zinc-500">
+                                Inactive for Full Day
+                              </span>
+                            )}
+                          </div>
+
+                          {isFullDayPackage ? (
+                            <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs font-medium text-zinc-500">
+                              Full day booking reserves the entire day ({formatReadableDate(selectedDateInfo.date)}). No separate time selection needed.
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <div>
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5 flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  Available Windows on {formatReadableDate(selectedDateInfo.date)}
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {selectedDateInfo.slots.map((slot) => {
+                                    const isSlotPicked =
+                                      (selectedSlotId || selectedDateInfo.slots[0]?.id) === slot.id;
+                                    return (
+                                      <button
+                                        key={slot.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedSlotId(slot.id);
+                                          const sT = toHHMM(slot.start_time);
+                                          const eT = toHHMM(slot.end_time);
+                                          const dur = selectedPackage.toLowerCase().includes('half day')
+                                            ? 4
+                                            : 2;
+                                          setCustomStartTime(sT);
+                                          setCustomEndTime(addHoursClamped(sT, dur, eT));
+                                          setBookingError(null);
+                                        }}
+                                        className={`rounded-xl border px-3 py-2 text-xs font-bold transition-all text-center ${
+                                          isSlotPicked
+                                            ? 'border-zinc-950 bg-zinc-950 text-white shadow-sm'
+                                            : 'border-zinc-200 bg-white text-zinc-800 hover:border-zinc-400'
+                                        }`}
+                                      >
+                                        {formatSlotWindow(slot.start_time, slot.end_time)}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {selectedSlotObj && (
+                                <div className="rounded-2xl border border-zinc-200 bg-zinc-50/70 p-3.5 space-y-2.5">
+                                  <p className="text-[11px] font-bold text-zinc-700">
+                                    Customize Your Session Time (within{' '}
+                                    {toHHMM(selectedSlotObj.start_time)} – {toHHMM(selectedSlotObj.end_time)})
+                                  </p>
+                                  <div className="grid grid-cols-2 gap-2.5">
+                                    <div>
+                                      <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1">
+                                        Start Time
+                                      </label>
+                                      <input
+                                        type="time"
+                                        min={toHHMM(selectedSlotObj.start_time)}
+                                        max={toHHMM(selectedSlotObj.end_time)}
+                                        value={customStartTime}
+                                        onChange={(e) => setCustomStartTime(e.target.value)}
+                                        className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[10px] font-bold uppercase text-zinc-500 mb-1">
+                                        End Time
+                                      </label>
+                                      <input
+                                        type="time"
+                                        min={customStartTime || toHHMM(selectedSlotObj.start_time)}
+                                        max={toHHMM(selectedSlotObj.end_time)}
+                                        value={customEndTime}
+                                        onChange={(e) => setCustomEndTime(e.target.value)}
+                                        className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* STEP 04: Session Note */}
+                      {selectedPackage && (
+                        <div className="space-y-2 pt-2 border-t border-zinc-100">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-950 text-white text-[10px] font-black">
+                              04
+                            </span>
+                            <label className="text-sm font-black text-zinc-950">
+                              Session Note <span className="text-xs font-medium text-zinc-500">(Optional)</span>
+                            </label>
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Location details, moodboard notes, or special requests..."
+                            className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                          />
                         </div>
                       )}
                     </>
@@ -734,8 +884,8 @@ export default function PhotographersBookingPage() {
                   bookingLoading ||
                   !selectedPhotographer ||
                   !selectedDate ||
-                  !selectedSlotId ||
-                  !selectedPackage
+                  !selectedPackage ||
+                  (!isFullDayPackage && (!customStartTime || !customEndTime))
                 }
                 className="w-full rounded-2xl bg-zinc-950 py-4 text-sm font-black text-white hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
               >

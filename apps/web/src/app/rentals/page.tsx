@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   PackageCheck,
@@ -9,6 +10,10 @@ import {
   ShieldCheck,
   ArrowRight,
   CheckCircle2,
+  ShoppingBag,
+  UploadCloud,
+  FileCheck2,
+  Pencil,
 } from 'lucide-react';
 import { formatNaira } from '@icx/ui-core';
 import type { EquipmentItemRecord, RentalRecord } from '@icx/shared-types';
@@ -17,9 +22,11 @@ import { AppFooter } from '@/components/layout/AppFooter';
 import {
   apiFetch,
   ApiError,
+  getStoredAccessToken,
   sanitizeNigerianPhoneInput,
   validateNigerianPhone,
 } from '@/lib/api';
+import { addToRentalCart, getRentalCart } from '@/lib/rentalCart';
 
 interface DayAvailability {
   date: string;
@@ -63,13 +70,25 @@ export default function EquipmentRentalPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [govIdNumber, setGovIdNumber] = useState('');
-  const [projectDesc, setProjectDesc] = useState('');
+  const [idDocumentType, setIdDocumentType] = useState<
+    'International Passport' | 'NIN Slip / Card' | "Driver's License"
+  >('International Passport');
+  const [idDocumentUrl, setIdDocumentUrl] = useState('');
+  const [idDocumentName, setIdDocumentName] = useState('');
+  const [uploadingId, setUploadingId] = useState(false);
+  const [hasSavedProfile, setHasSavedProfile] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
+  const [cartAddedMsg, setCartAddedMsg] = useState<string | null>(null);
   const [heldRental, setHeldRental] = useState<RentalRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setCartCount(getRentalCart().length);
+    const onCartUpdate = () => setCartCount(getRentalCart().length);
+    window.addEventListener('icx-rental-cart-updated', onCartUpdate);
+
     apiFetch<{ equipment: EquipmentItemRecord[] }>('/rentals/equipment')
       .then((res) => {
         setEquipment(res.equipment);
@@ -78,11 +97,43 @@ export default function EquipmentRentalPage() {
         }
       })
       .catch(() => setError('Unable to load cinema & studio equipment catalog.'));
+
+    if (getStoredAccessToken()) {
+      apiFetch<{
+        renterProfile: Record<string, any> | null;
+        account: { full_name: string; email: string; phone: string | null };
+      }>('/rentals/renter-profile')
+        .then((res) => {
+          const rp = res.renterProfile;
+          if (rp && (rp.id_document_url || rp.government_id_number)) {
+            setFullName(String(rp.full_name || res.account.full_name || ''));
+            setPhone(sanitizeNigerianPhoneInput(String(rp.phone || res.account.phone || '')));
+            setEmail(String(rp.email || res.account.email || ''));
+            setAddress(String(rp.address || ''));
+            if (rp.id_document_type) {
+              setIdDocumentType(rp.id_document_type);
+            }
+            if (rp.id_document_url) {
+              setIdDocumentUrl(String(rp.id_document_url));
+              setIdDocumentName('Verified ID Document on File');
+            }
+            setHasSavedProfile(true);
+          } else if (res.account) {
+            setFullName(res.account.full_name || '');
+            setPhone(sanitizeNigerianPhoneInput(res.account.phone || ''));
+            setEmail(res.account.email || '');
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => window.removeEventListener('icx-rental-cart-updated', onCartUpdate);
   }, []);
 
   async function handleSelectItem(item: EquipmentItemRecord) {
     setSelectedItem(item);
     setHeldRental(null);
+    setCartAddedMsg(null);
     setError(null);
     setUnits(1);
 
@@ -101,6 +152,42 @@ export default function EquipmentRentalPage() {
     }
   }
 
+  async function handleIdFileUpload(file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image (JPG, PNG, WEBP) of your Passport, NIN, or Driver’s License.');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setError('ID document image must be under 15MB.');
+      return;
+    }
+    setError(null);
+    setUploadingId(true);
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await apiFetch<{ url: string }>('/uploads/media', {
+        method: 'POST',
+        body: JSON.stringify({ base64Data }),
+      });
+      setIdDocumentUrl(res.url);
+      setIdDocumentName(file.name);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        router.push('/auth/login?redirect=/rentals');
+        return;
+      }
+      setError(err instanceof Error ? err.message : 'Unable to upload ID document.');
+    } finally {
+      setUploadingId(false);
+    }
+  }
+
   const selectedRangeDays = calendarDays.filter(
     (d) => startDate && endDate && d.date >= startDate && d.date <= endDate
   );
@@ -114,12 +201,42 @@ export default function EquipmentRentalPage() {
     ? Number(selectedItem.daily_price) * dayCount * units
     : 0;
 
+  function handleAddToCart() {
+    if (!selectedItem || !startDate || !endDate) {
+      setError('Please select pickup and return dates first.');
+      return;
+    }
+    if (maxFreeUnitsInRange < units) {
+      setError('Requested units exceed available inventory for the selected dates.');
+      return;
+    }
+    setError(null);
+    const updated = addToRentalCart({
+      item_id: selectedItem.id,
+      name: selectedItem.name,
+      daily_price: selectedItem.daily_price,
+      image_url: getGearImage(selectedItem.photos),
+      start_date: startDate,
+      end_date: endDate,
+      units,
+      day_count: dayCount,
+    });
+    setCartCount(updated.length);
+    setCartAddedMsg(
+      `Added ${units} × ${selectedItem.name} (${startDate} to ${endDate}) to your Rental Cart.`
+    );
+  }
+
   async function handleCreate30MinHold(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedItem) return;
     const phoneErr = validateNigerianPhone(phone);
     if (phoneErr) {
       setError(phoneErr);
+      return;
+    }
+    if (!idDocumentUrl) {
+      setError('Please upload a clear photo of your Passport, NIN, or Driver’s License.');
       return;
     }
     setLoading(true);
@@ -138,15 +255,17 @@ export default function EquipmentRentalPage() {
             phone,
             email,
             address,
-            government_id_number: govIdNumber,
-            project_description: projectDesc,
+            id_document_type: idDocumentType,
+            id_document_url: idDocumentUrl,
           },
         }),
       });
+      setHasSavedProfile(true);
+      setEditingProfile(false);
       setHeldRental(res.rental);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        router.push('/auth/login');
+        router.push('/auth/login?redirect=/rentals');
         return;
       }
       setError(err instanceof Error ? err.message : 'Unable to lock equipment units.');
@@ -190,10 +309,34 @@ export default function EquipmentRentalPage() {
               Multi-unit RED digital cinema packages, Hasselblad 100MP medium format systems, Sony G-Master lens trinities, and Profoto Pro-11 generators. Every item is owned, bench-tested, and posted exclusively by ICX Studios Administration.
             </p>
           </div>
+          <Link
+            href="/rentals/cart"
+            className="inline-flex items-center gap-2.5 rounded-full bg-zinc-950 px-5 py-3 text-xs font-black text-white shadow-md hover:bg-zinc-800 transition-colors shrink-0 self-start lg:self-auto"
+          >
+            <ShoppingBag className="h-4 w-4 text-emerald-400" />
+            <span>Rental Cart ({cartCount})</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </div>
 
       <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
+        {cartAddedMsg && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+              <span>{cartAddedMsg}</span>
+            </div>
+            <Link
+              href="/rentals/cart"
+              className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-4 py-2 text-[11px] font-black text-white hover:bg-zinc-800 shrink-0"
+            >
+              <span>View Cart &amp; Checkout ({cartCount})</span>
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+        )}
+
         {error && (
           <div className="flex items-center gap-2.5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -395,85 +538,147 @@ export default function EquipmentRentalPage() {
                     </div>
                   </div>
 
-                  {/* Customer Production Verification Form */}
+                  {/* Step 02 — Renter Information & Uploadable ID Verification */}
                   <div className="space-y-4 border-t border-zinc-200 pt-6">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">
-                      Step 02 — Production Pickup &amp; Identity Verification
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-900">
-                          Full Legal Name / Producer Name
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          placeholder="Firstname Lastname"
-                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-900">
-                          Phone Number
-                        </label>
-                        <input
-                          type="tel"
-                          inputMode="numeric"
-                          maxLength={11}
-                          required
-                          value={phone}
-                          onChange={(e) => setPhone(sanitizeNigerianPhoneInput(e.target.value))}
-                          placeholder="08012345678"
-                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                        />
-                        {phone.length === 11 && validateNigerianPhone(phone) && (
-                          <p className="mt-1 text-[11px] text-red-600 font-medium">
-                            {validateNigerianPhone(phone)}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-900">
-                          Production Email Address
-                        </label>
-                        <input
-                          type="email"
-                          required
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="producer@agency.com"
-                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-900">
-                          NIN or International Passport Number
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={govIdNumber}
-                          onChange={(e) => setGovIdNumber(e.target.value)}
-                          placeholder="Government ID for Vault Release"
-                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-bold text-zinc-900">
-                          Studio / Set Location Address
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={address}
-                          onChange={(e) => setAddress(e.target.value)}
-                          placeholder="Plot 14, Admiralty Way, Lekki Phase 1, Lagos"
-                          className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
-                        />
-                      </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                        Step 02 — Renter Information &amp; ID Upload
+                      </h3>
+                      {hasSavedProfile && !editingProfile && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingProfile(true)}
+                          className="inline-flex items-center gap-1 rounded-full border border-zinc-300 bg-white px-3 py-1 text-[11px] font-bold text-zinc-700 hover:bg-zinc-100"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          <span>Update Info</span>
+                        </button>
+                      )}
                     </div>
+
+                    {hasSavedProfile && !editingProfile ? (
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-black text-emerald-900">
+                          <FileCheck2 className="h-4 w-4 text-emerald-600" />
+                          <span>Verified Renter Profile &amp; ID Already on File</span>
+                        </div>
+                        <p className="text-xs text-emerald-800">
+                          <strong>{fullName}</strong> • {phone} • {email}
+                        </p>
+                        <p className="text-[11px] text-emerald-700">
+                          Address: {address} • ID Document: <strong>{idDocumentType}</strong> (Uploaded ✓)
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-900">
+                            Full Legal Name / Producer Name
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            placeholder="Firstname Lastname"
+                            className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-900">
+                            Phone Number
+                          </label>
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            maxLength={11}
+                            required
+                            value={phone}
+                            onChange={(e) => setPhone(sanitizeNigerianPhoneInput(e.target.value))}
+                            placeholder="08012345678"
+                            className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                          />
+                          {phone.length === 11 && validateNigerianPhone(phone) && (
+                            <p className="mt-1 text-[11px] text-red-600 font-medium">
+                              {validateNigerianPhone(phone)}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-900">
+                            Production Email Address
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="producer@agency.com"
+                            className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-900">
+                            ID Document Type
+                          </label>
+                          <select
+                            value={idDocumentType}
+                            onChange={(e) =>
+                              setIdDocumentType(
+                                e.target.value as
+                                  | 'International Passport'
+                                  | 'NIN Slip / Card'
+                                  | "Driver's License"
+                              )
+                            }
+                            className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs font-bold text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                          >
+                            <option value="International Passport">International Passport</option>
+                            <option value="NIN Slip / Card">NIN Slip / Card</option>
+                            <option value="Driver's License">Driver&apos;s License</option>
+                          </select>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-bold text-zinc-900">
+                            Studio / Set Location Address
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={address}
+                            onChange={(e) => setAddress(e.target.value)}
+                            placeholder="Plot 14, Admiralty Way, Lekki Phase 1, Lagos"
+                            className="mt-1 w-full rounded-xl border border-zinc-300 bg-zinc-50/50 px-3.5 py-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:bg-white focus:outline-none"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-bold text-zinc-900 mb-1">
+                            Upload {idDocumentType} (Saved once to your account)
+                          </label>
+                          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-3 hover:border-zinc-950 transition-colors">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <UploadCloud className="h-5 w-5 text-zinc-600 shrink-0" />
+                              <span className="text-xs font-semibold text-zinc-700 truncate">
+                                {uploadingId
+                                  ? 'Uploading ID document...'
+                                  : idDocumentUrl
+                                  ? `${idDocumentName || idDocumentType} (Uploaded ✓)`
+                                  : `Click to upload ${idDocumentType} (JPG, PNG, WEBP)`}
+                              </span>
+                            </div>
+                            <span className="rounded-full bg-zinc-950 px-3 py-1 text-[11px] font-black text-white shrink-0">
+                              {idDocumentUrl ? 'Change' : 'Upload'}
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => void handleIdFileUpload(e.target.files?.[0] || null)}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Total Calculation Bar */}
@@ -487,18 +692,28 @@ export default function EquipmentRentalPage() {
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading || maxFreeUnitsInRange < units}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 py-4 text-sm font-black text-white shadow-xl hover:bg-zinc-800 disabled:opacity-40 transition-all"
-                  >
-                    <span>
-                      {loading
-                        ? 'Locking Vault Units...'
-                        : 'Lock Units for 30 Minutes & Proceed to Checkout'}
-                    </span>
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      disabled={maxFreeUnitsInRange < units}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-full border-2 border-zinc-950 bg-white py-3.5 text-xs sm:text-sm font-black text-zinc-950 hover:bg-zinc-100 disabled:opacity-40 transition-all"
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      <span>Add to Rental Cart</span>
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={loading || uploadingId || maxFreeUnitsInRange < units}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-zinc-950 py-3.5 text-xs sm:text-sm font-black text-white shadow-xl hover:bg-zinc-800 disabled:opacity-40 transition-all"
+                    >
+                      <span>
+                        {loading ? 'Locking Vault Units...' : 'Reserve & Pay Now'}
+                      </span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
                 </form>
               ) : (
                 <div className="space-y-6 text-center py-10">
